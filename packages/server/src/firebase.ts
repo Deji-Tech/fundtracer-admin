@@ -33,11 +33,11 @@ export function initializeFirebase() {
     }
 }
 
-export function getAuth() {
+export function getAuth(): admin.auth.Auth {
     return admin.auth();
 }
 
-export function getFirestore() {
+export function getFirestore(): admin.firestore.Firestore {
     return admin.firestore();
 }
 

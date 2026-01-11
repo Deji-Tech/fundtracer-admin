@@ -129,6 +129,15 @@ fundtracer config --set-key YOUR_API_KEY
 fundtracer config --show
 ```
 
+### Netlify Deployment Note
+
+If your build fails with **"Exposed secrets detected"**:
+1. This is a false positive. Firebase keys (`VITE_FIREBASE_API_KEY`, etc.) are public identifiers, not true secrets.
+2. Go to your **Netlify Site Settings > Build & Deploy > Security**.
+3. Locate "Sensitive variable policy" or "Secrets scanning".
+4. Select **"Allow build"** or explicitly allow the Firebase variables.
+
+
 ---
 
 ## Usage Limits

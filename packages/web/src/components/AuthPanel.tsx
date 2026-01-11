@@ -3,9 +3,14 @@ import { Github } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { saveApiKey, removeApiKey } from '../api';
 
-function AuthPanel() {
+interface AuthPanelProps {
+    showApiKeyForm: boolean;
+    setShowApiKeyForm: (show: boolean) => void;
+}
+
+function AuthPanel({ showApiKeyForm, setShowApiKeyForm }: AuthPanelProps) {
     const { user, profile, loading, signIn, signInWithGithub, signOut, refreshProfile } = useAuth();
-    const [showApiKeyForm, setShowApiKeyForm] = useState(false);
+    // const [showApiKeyForm, setShowApiKeyForm] = useState(false); // Valid, removing this line
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [apiKeyError, setApiKeyError] = useState('');
     const [apiKeySaving, setApiKeySaving] = useState(false);

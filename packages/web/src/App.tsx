@@ -111,11 +111,13 @@ function App() {
         setWalletAddresses(updated);
     };
 
+    const [showApiKeyForm, setShowApiKeyForm] = useState(false);
+
     // Show auth loading state
     if (authLoading) {
         return (
             <div className="app-container">
-                <Header />
+                <Header onSettingsClick={() => setShowApiKeyForm(true)} />
                 <main className="main-content">
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
                         <div className="loading-spinner" />
@@ -127,11 +129,17 @@ function App() {
 
     return (
         <div className="app-container">
-            <Header />
+            <Header onSettingsClick={() => {
+                setShowApiKeyForm(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }} />
 
             <main className="main-content">
                 {/* Auth Panel - Shows sign in or user info */}
-                <AuthPanel />
+                <AuthPanel
+                    showApiKeyForm={showApiKeyForm}
+                    setShowApiKeyForm={setShowApiKeyForm}
+                />
 
                 {/* How To Use Section */}
                 <HowToUse isOpen={showHowToUse} onToggle={() => setShowHowToUse(!showHowToUse)} />

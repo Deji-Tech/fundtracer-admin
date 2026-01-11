@@ -5,7 +5,10 @@
 import { getIdToken } from './firebase';
 import { ChainId, AnalysisResult, MultiWalletResult } from '@fundtracer/core';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// In production, assume the API is on the same domain if not specified (e.g., via proxy)
+// Or use a hardcoded production URL if frontend/backend are separate
+const PROD_API_URL = 'https://fundtracer-api-production.up.railway.app'; // Replace with actual backend URL if different
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? PROD_API_URL : 'http://localhost:3001');
 
 interface ApiResponse<T> {
     success: boolean;

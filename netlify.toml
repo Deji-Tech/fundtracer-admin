@@ -1,7 +1,7 @@
 [build]
-  base = "packages/web"
-  publish = "dist"
-  command = "npm run build"
+  base = "/"
+  publish = "packages/web/dist"
+  command = "npm install && npm run build --workspace=@fundtracer/web"
 
 [[redirects]]
   from = "/*"

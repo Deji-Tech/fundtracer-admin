@@ -40,8 +40,14 @@ app.get('/health', (req, res) => {
 });
 
 // Protected routes
-app.use('/api/user', authMiddleware, userRoutes);
-app.use('/api/analyze', authMiddleware, usageMiddleware, analyzeRoutes);
+// Create a main router
+const apiRouter = express.Router();
+apiRouter.use('/user', authMiddleware, userRoutes);
+apiRouter.use('/analyze', authMiddleware, usageMiddleware, analyzeRoutes);
+
+// Mount router at both /api (for local dev) and root (for Netlify environment where /api might be stripped)
+app.use('/api', apiRouter);
+app.use('/', apiRouter);
 
 // Error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

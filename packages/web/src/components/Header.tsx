@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, Github } from 'lucide-react';
+import { Settings, Github, Mail } from 'lucide-react';
 
 interface HeaderProps {
     onSettingsClick?: () => void;
@@ -12,7 +12,7 @@ function Header({ onSettingsClick }: HeaderProps) {
                 <div className="logo">
                     <img
                         src="/logo.png"
-                        alt="Cyber-Nanna"
+                        alt="FundTracer"
                         style={{ width: '32px', height: '32px', objectFit: 'contain', borderRadius: '4px' }}
                     />
                     <span className="logo-text">FundTracer</span>
@@ -21,18 +21,28 @@ function Header({ onSettingsClick }: HeaderProps) {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                     <a
-                        href="https://github.com"
+                        href="https://github.com/Deji-Tech"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn btn-ghost btn-icon"
                         aria-label="GitHub"
+                        title="GitHub"
                     >
                         <Github size={18} />
+                    </a>
+                    <a
+                        href="mailto:fundtracerbydt@gmail.com"
+                        className="btn btn-ghost btn-icon"
+                        aria-label="Email"
+                        title="Contact us"
+                    >
+                        <Mail size={18} />
                     </a>
                     <button
                         className="btn btn-ghost btn-icon"
                         onClick={onSettingsClick}
                         aria-label="Settings"
+                        title="Settings"
                     >
                         <Settings size={18} />
                     </button>

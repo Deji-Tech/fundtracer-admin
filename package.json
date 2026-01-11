@@ -1,0 +1,28 @@
+{
+  "name": "fundtracer",
+  "version": "1.0.0",
+  "description": "FundTracer by DT - Blockchain wallet analysis tool",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@fundtracer/web",
+    "dev:server": "npm run dev --workspace=@fundtracer/server",
+    "build": "npm run build --workspaces",
+    "cli": "npm run start --workspace=@fundtracer/cli",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "keywords": [
+    "blockchain",
+    "ethereum",
+    "wallet",
+    "analysis",
+    "fundtracer"
+  ],
+  "author": "DT",
+  "license": "MIT",
+  "dependencies": {
+    "firebase": "^12.7.0"
+  }
+}

@@ -1,0 +1,179 @@
+// ============================================================
+// FundTracer by DT - Funding Tree Builder
+// ============================================================
+
+import { BaseProvider } from '../providers/BaseProvider.js';
+import {
+    FundingNode,
+    FundingTreeConfig,
+    Transaction,
+    ProgressCallback,
+} from '../types.js';
+
+const DEFAULT_CONFIG: FundingTreeConfig = {
+    maxDepth: 10,
+    direction: 'both',
+};
+
+export class FundingTreeBuilder {
+    private provider: BaseProvider;
+    private visitedAddresses: Set<string> = new Set();
+    private onProgress?: ProgressCallback;
+
+    constructor(provider: BaseProvider, onProgress?: ProgressCallback) {
+        this.provider = provider;
+        this.onProgress = onProgress;
+    }
+
+    /** Build funding tree for sources (who funded this wallet) */
+    async buildSourceTree(
+        address: string,
+        config: Partial<FundingTreeConfig> = {}
+    ): Promise<FundingNode> {
+        this.visitedAddresses.clear();
+        const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+
+        return this.buildTree(address, 0, mergedConfig, 'source');
+    }
+
+    /** Build funding tree for destinations (who this wallet funded) */
+    async buildDestinationTree(
+        address: string,
+        config: Partial<FundingTreeConfig> = {}
+    ): Promise<FundingNode> {
+        this.visitedAddresses.clear();
+        const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+
+        return this.buildTree(address, 0, mergedConfig, 'destination');
+    }
+
+    /** Recursive tree builder */
+    private async buildTree(
+        address: string,
+        depth: number,
+        config: FundingTreeConfig,
+        direction: 'source' | 'destination'
+    ): Promise<FundingNode> {
+        const normalizedAddr = address.toLowerCase();
+
+        // Create base node
+        const node: FundingNode = {
+            address: normalizedAddr,
+            depth,
+            direction,
+            totalValue: '0',
+            totalValueInEth: 0,
+            txCount: 0,
+            children: [],
+            suspiciousScore: 0,
+            suspiciousReasons: [],
+        };
+
+        // Check if we've hit max depth or already visited
+        if (depth >= config.maxDepth || this.visitedAddresses.has(normalizedAddr)) {
+            return node;
+        }
+
+        this.visitedAddresses.add(normalizedAddr);
+
+        // Report progress
+        if (this.onProgress) {
+            this.onProgress({
+                stage: direction === 'source' ? 'Tracing funding sources' : 'Tracing destinations',
+                current: this.visitedAddresses.size,
+                total: config.maxDepth * 10, // Estimated
+                message: `Analyzing ${normalizedAddr.slice(0, 10)}... (depth ${depth})`,
+            });
+        }
+
+        try {
+            // Get transactions
+            const txs = await this.provider.getTransactions(normalizedAddr, {
+                timeRange: config.timeRange,
+                minValue: config.minValueEth,
+            });
+
+            // Filter by direction
+            const relevantTxs = direction === 'source'
+                ? txs.filter(tx => tx.isIncoming && tx.valueInEth > 0)
+                : txs.filter(tx => !tx.isIncoming && tx.valueInEth > 0);
+
+            // Aggregate by counterparty
+            const counterpartyMap = new Map<string, { txs: Transaction[]; totalValue: number }>();
+
+            for (const tx of relevantTxs) {
+                const counterparty = direction === 'source' ? tx.from : tx.to;
+                if (!counterparty) continue;
+
+                const existing = counterpartyMap.get(counterparty) || { txs: [], totalValue: 0 };
+                existing.txs.push(tx);
+                existing.totalValue += tx.valueInEth;
+                counterpartyMap.set(counterparty, existing);
+            }
+
+            // Sort by total value and take top addresses
+            const sortedCounterparties = Array.from(counterpartyMap.entries())
+                .sort((a, b) => b[1].totalValue - a[1].totalValue)
+                .slice(0, 10); // Limit children per node
+
+            // Build child nodes (with depth + 1 only if not at leaf level)
+            const childPromises = sortedCounterparties.map(async ([addr, data]) => {
+                const childNode: FundingNode = {
+                    address: addr.toLowerCase(),
+                    depth: depth + 1,
+                    direction,
+                    totalValue: (data.totalValue * 1e18).toString(),
+                    totalValueInEth: data.totalValue,
+                    txCount: data.txs.length,
+                    firstTx: data.txs[data.txs.length - 1], // Oldest
+                    children: [],
+                    suspiciousScore: 0,
+                    suspiciousReasons: [],
+                };
+
+                // Recursively build if not at max depth
+                if (depth + 1 < config.maxDepth && !this.visitedAddresses.has(addr.toLowerCase())) {
+                    const childTree = await this.buildTree(addr, depth + 1, config, direction);
+                    childNode.children = childTree.children;
+                }
+
+                return childNode;
+            });
+
+            node.children = await Promise.all(childPromises);
+            node.txCount = relevantTxs.length;
+            node.totalValueInEth = relevantTxs.reduce((sum, tx) => sum + tx.valueInEth, 0);
+            node.totalValue = (node.totalValueInEth * 1e18).toString();
+
+        } catch (error) {
+            console.error(`Error building tree for ${normalizedAddr}:`, error);
+        }
+
+        return node;
+    }
+
+    /** Find common ancestors between two wallets */
+    async findCommonAncestors(
+        address1: string,
+        address2: string,
+        maxDepth: number = 3
+    ): Promise<string[]> {
+        const tree1 = await this.buildSourceTree(address1, { maxDepth });
+        this.visitedAddresses.clear();
+        const tree2 = await this.buildSourceTree(address2, { maxDepth });
+
+        const addresses1 = this.flattenTreeAddresses(tree1);
+        const addresses2 = this.flattenTreeAddresses(tree2);
+
+        return addresses1.filter(addr => addresses2.includes(addr));
+    }
+
+    /** Flatten tree to list of addresses */
+    private flattenTreeAddresses(node: FundingNode): string[] {
+        const addresses = [node.address];
+        for (const child of node.children) {
+            addresses.push(...this.flattenTreeAddresses(child));
+        }
+        return addresses;
+    }
+}

@@ -1,0 +1,14 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+
+# Firebase service account key
+*-firebase-adminsdk-*.json
+serviceAccountKey.json

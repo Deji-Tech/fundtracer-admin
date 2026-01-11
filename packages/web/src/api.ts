@@ -7,8 +7,7 @@ import { ChainId, AnalysisResult, MultiWalletResult } from '@fundtracer/core';
 
 // In production, assume the API is on the same domain if not specified (e.g., via proxy)
 // Or use a hardcoded production URL if frontend/backend are separate
-// In production, use relative path which Netlify redirects to Functions
-// In development, use localhost
+// In production, use relative path '/api' which Netlify redirects to /.netlify/functions/api
 const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001');
 
 interface ApiResponse<T> {

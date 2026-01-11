@@ -46,7 +46,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     setProfile(userProfile);
                 } catch (error) {
                     console.error('Failed to fetch profile:', error);
-                    setProfile(null);
+                    // Fallback to basic profile so UI doesn't look broken
+                    // This allows users to see the dashboard even if the API is momentarily down
+                    setProfile({
+                        uid: firebaseUser.uid,
+                        email: firebaseUser.email || '',
+                        name: firebaseUser.displayName || undefined,
+                        hasCustomApiKey: false,
+                        usage: {
+                            today: 0,
+                            limit: 7, // Assume free tier
+                            remaining: 7
+                        }
+                    });
                 }
             } else {
                 setProfile(null);

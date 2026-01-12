@@ -8,6 +8,7 @@ export type ChainId = 'ethereum' | 'linea' | 'arbitrum' | 'base' | 'optimism' | 
 /** Chain configuration */
 export interface ChainConfig {
     id: ChainId;
+    chainId: number; // EIP-155 Chain ID
     name: string;
     symbol: string;
     explorer: string;

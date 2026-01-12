@@ -129,6 +129,7 @@ export abstract class BaseProvider {
             params: {
                 ...params,
                 apikey: this.apiKey,
+                chainid: this.chainConfig.chainId,
             },
         });
 

@@ -1,9 +1,5 @@
-// Provider exports
-export { BaseProvider } from './BaseProvider.js';
-export {
-    EtherscanProvider,
-    LineascanProvider,
-    ArbiscanProvider,
-    BasescanProvider,
-} from './ChainProviders.js';
+// Provider exports - Alchemy-only
+export { AlchemyProvider } from './AlchemyProvider.js';
+export { type ITransactionProvider } from './ITransactionProvider.js';
 export { ProviderFactory, type ApiKeyConfig } from './ProviderFactory.js';
+

@@ -29,15 +29,16 @@ interface UseAnalyzerReturn {
 const getApiKeys = (): ApiKeyConfig => {
     const stored = localStorage.getItem('fundtracer_api_keys');
     if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        // Handle new format
+        if (parsed.alchemy) {
+            return parsed;
+        }
     }
 
-    // Default demo keys (rate limited)
+    // Default - use alchemy key from localStorage
     return {
-        ethereum: localStorage.getItem('etherscan_api_key') || 'YourApiKeyToken',
-        linea: localStorage.getItem('lineascan_api_key') || 'YourApiKeyToken',
-        arbitrum: localStorage.getItem('arbiscan_api_key') || 'YourApiKeyToken',
-        base: localStorage.getItem('basescan_api_key') || 'YourApiKeyToken',
+        alchemy: localStorage.getItem('alchemy_api_key') || 'demo_key',
     };
 };
 

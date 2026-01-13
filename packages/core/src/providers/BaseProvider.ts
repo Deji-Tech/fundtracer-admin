@@ -23,7 +23,7 @@ class RateLimiter {
     private lastCall = 0;
     private minInterval: number;
 
-    constructor(callsPerSecond: number = 5) {
+    constructor(callsPerSecond: number = 2) {
         this.minInterval = 1000 / callsPerSecond;
     }
 
@@ -98,7 +98,7 @@ export abstract class BaseProvider {
     constructor(chainId: ChainId, apiKey: string) {
         this.chainConfig = getChainConfig(chainId);
         this.apiKey = apiKey;
-        this.rateLimiter = new RateLimiter(5);
+        this.rateLimiter = new RateLimiter(5); // User requested 5 calls/sec
         this.cache = new ResponseCache(5);
 
         this.client = axios.create({
@@ -115,9 +115,10 @@ export abstract class BaseProvider {
         return this.chainConfig.name;
     }
 
-    /** Make API request with rate limiting and caching */
+    /** Make API request with rate limiting, caching, and retries */
     protected async request<T>(
-        params: Record<string, string | number>
+        params: Record<string, string | number>,
+        retries = 3
     ): Promise<T> {
         const cacheKey = JSON.stringify(params);
         const cached = this.cache.get<T>(cacheKey);
@@ -125,20 +126,54 @@ export abstract class BaseProvider {
 
         await this.rateLimiter.throttle();
 
-        const response = await this.client.get<ExplorerApiResponse<T>>('', {
-            params: {
-                ...params,
-                apikey: this.apiKey,
-                chainid: this.chainConfig.chainId,
-            },
-        });
+        const requestParams = {
+            ...params,
+            apikey: this.apiKey?.trim(),
+            chainid: String(this.chainConfig.chainId),
+        };
 
-        if (response.data.status !== '1' && response.data.message !== 'No transactions found') {
-            throw new Error(`API Error: ${response.data.message}`);
+        if (process.env.NODE_ENV !== 'production' || process.env.DEBUG === 'true') {
+            console.log(`[DEBUG] Etherscan Request [${this.chainConfig.id}]:`, {
+                url: this.client.defaults.baseURL,
+                params: {
+                    ...requestParams,
+                    apikey: requestParams.apikey ? `${requestParams.apikey.slice(0, 4)}...` : 'MISSING'
+                }
+            });
         }
 
-        this.cache.set(cacheKey, response.data.result);
-        return response.data.result;
+        try {
+            const response = await this.client.get<ExplorerApiResponse<T>>('', {
+                params: requestParams,
+            });
+
+            if (response.data.status !== '1' && response.data.message !== 'No transactions found') {
+                const errorResult = JSON.stringify(response.data.result);
+
+                // Check for rate limit error
+                if (typeof response.data.result === 'string' && response.data.result.includes('Max calls per sec')) {
+                    if (retries > 0) {
+                        console.warn(`[WARN] Rate limit hit. Retrying in 1s... (${retries} left)`);
+                        await new Promise(r => setTimeout(r, 1000));
+                        return this.request<T>(params, retries - 1);
+                    }
+                }
+
+                console.error(`[DEBUG] Etherscan Error Result:`, errorResult);
+                throw new Error(`API Error: ${response.data.message} - ${errorResult}`);
+            }
+
+            this.cache.set(cacheKey, response.data.result);
+            return response.data.result;
+        } catch (error) {
+            // Retry on network errors
+            if (retries > 0) {
+                console.warn(`[WARN] Request failed. Retrying... (${retries} left)`);
+                await new Promise(r => setTimeout(r, 1000));
+                return this.request<T>(params, retries - 1);
+            }
+            throw error;
+        }
     }
 
     /** Get wallet balance in Wei */

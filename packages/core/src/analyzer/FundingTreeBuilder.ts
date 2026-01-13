@@ -2,7 +2,7 @@
 // FundTracer by DT - Funding Tree Builder
 // ============================================================
 
-import { BaseProvider } from '../providers/BaseProvider.js';
+import { ITransactionProvider } from '../providers/ITransactionProvider.js';
 import {
     FundingNode,
     FundingTreeConfig,
@@ -11,16 +11,16 @@ import {
 } from '../types.js';
 
 const DEFAULT_CONFIG: FundingTreeConfig = {
-    maxDepth: 10,
+    maxDepth: 5, // Balanced depth for complete but timely analysis
     direction: 'both',
 };
 
 export class FundingTreeBuilder {
-    private provider: BaseProvider;
+    private provider: ITransactionProvider;
     private visitedAddresses: Set<string> = new Set();
     private onProgress?: ProgressCallback;
 
-    constructor(provider: BaseProvider, onProgress?: ProgressCallback) {
+    constructor(provider: ITransactionProvider, onProgress?: ProgressCallback) {
         this.provider = provider;
         this.onProgress = onProgress;
     }
@@ -153,11 +153,23 @@ export class FundingTreeBuilder {
     }
 
     /** Find common ancestors between two wallets */
+    /** Find common ancestors between two wallets */
     async findCommonAncestors(
         address1: string,
         address2: string,
         maxDepth: number = 3
     ): Promise<string[]> {
+        // Try fast check first (direct funding source comparison)
+        const [source1, source2] = await Promise.all([
+            this.provider.getFirstFunder(address1),
+            this.provider.getFirstFunder(address2)
+        ]);
+
+        if (source1 && source2 && source1.address === source2.address) {
+            return [source1.address];
+        }
+
+        // Fallback to deep tree search if simple check fails
         const tree1 = await this.buildSourceTree(address1, { maxDepth });
         this.visitedAddresses.clear();
         const tree2 = await this.buildSourceTree(address2, { maxDepth });

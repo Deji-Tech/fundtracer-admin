@@ -6,19 +6,21 @@ import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { ChainId, getEnabledChains } from '@fundtracer/core';
+import { ChainId, getEnabledChains, ApiKeyConfig } from '@fundtracer/core';
 
 const CONFIG_DIR = path.join(os.homedir(), '.fundtracer');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
 interface Config {
-    apiKeys: Partial<Record<ChainId, string>>;
+    apiKeys: ApiKeyConfig;
     defaultChain: ChainId;
     defaultDepth: number;
 }
 
 const DEFAULT_CONFIG: Config = {
-    apiKeys: {},
+    apiKeys: {
+        alchemy: '',
+    },
     defaultChain: 'ethereum',
     defaultDepth: 3,
 };
@@ -51,12 +53,12 @@ export async function configCommand(options: ConfigOptions) {
     console.log(chalk.cyan('FundTracer Configuration\n'));
     console.log('Usage:');
     console.log('  fundtracer config --show              Show current configuration');
-    console.log('  fundtracer config --set-key <chain:key>  Set API key for a chain');
+    console.log('  fundtracer config --set-key <provider:key>  Set API key (alchemy, moralis)');
     console.log('  fundtracer config --reset             Reset to default configuration');
     console.log();
     console.log('Examples:');
-    console.log('  fundtracer config --set-key ethereum:YOUR_ETHERSCAN_API_KEY');
-    console.log('  fundtracer config --set-key linea:YOUR_LINEASCAN_API_KEY');
+    console.log('  fundtracer config --set-key alchemy:YOUR_ALCHEMY_KEY');
+    console.log('  fundtracer config --set-key moralis:YOUR_MORALIS_KEY');
 }
 
 function ensureConfigDir() {
@@ -88,16 +90,23 @@ function showConfig() {
     console.log(`Config file: ${chalk.dim(CONFIG_FILE)}\n`);
 
     console.log(chalk.bold('API Keys:'));
-    const chains = getEnabledChains();
 
-    for (const chain of chains) {
-        const key = config.apiKeys[chain.id];
-        if (key) {
-            const masked = key.slice(0, 4) + '...' + key.slice(-4);
-            console.log(`  ${chalk.green('✓')} ${chain.name}: ${chalk.dim(masked)}`);
-        } else {
-            console.log(`  ${chalk.red('✗')} ${chain.name}: ${chalk.dim('Not configured')}`);
-        }
+    // Alchemy
+    const alchemyKey = config.apiKeys.alchemy;
+    if (alchemyKey) {
+        const masked = alchemyKey.slice(0, 4) + '...' + alchemyKey.slice(-4);
+        console.log(`  ${chalk.green('✓')} Alchemy: ${chalk.dim(masked)}`);
+    } else {
+        console.log(`  ${chalk.red('✗')} Alchemy: ${chalk.dim('Not configured')}`);
+    }
+
+    // Moralis
+    const moralisKey = config.apiKeys.moralis;
+    if (moralisKey) {
+        const masked = moralisKey.slice(0, 4) + '...' + moralisKey.slice(-4);
+        console.log(`  ${chalk.green('✓')} Moralis: ${chalk.dim(masked)}`);
+    } else {
+        console.log(`  ${chalk.yellow('?')} Moralis: ${chalk.dim('Not configured (Optional)')}`);
     }
 
     console.log();
@@ -107,25 +116,24 @@ function showConfig() {
 }
 
 function setApiKey(keyString: string) {
-    const [chain, key] = keyString.split(':');
+    const [provider, key] = keyString.split(':');
 
-    if (!chain || !key) {
-        console.error(chalk.red('✗ Invalid format. Use: --set-key <chain>:<api_key>'));
+    if (!provider || !key) {
+        console.error(chalk.red('✗ Invalid format. Use: --set-key <provider>:<api_key>'));
         process.exit(1);
     }
 
-    const validChains: ChainId[] = ['ethereum', 'linea', 'arbitrum', 'base', 'optimism', 'polygon'];
-    if (!validChains.includes(chain as ChainId)) {
-        console.error(chalk.red(`✗ Invalid chain: ${chain}`));
-        console.log(chalk.dim(`Valid chains: ${validChains.join(', ')}`));
+    if (provider !== 'alchemy' && provider !== 'moralis') {
+        console.error(chalk.red(`✗ Invalid provider: ${provider}`));
+        console.log(chalk.dim('Valid providers: alchemy, moralis'));
         process.exit(1);
     }
 
     const config = loadConfig();
-    config.apiKeys[chain as ChainId] = key;
+    config.apiKeys[provider as keyof ApiKeyConfig] = key;
     saveConfig(config);
 
-    console.log(chalk.green(`✓ API key for ${chain} saved successfully`));
+    console.log(chalk.green(`✓ API key for ${provider} saved successfully`));
 }
 
 function resetConfig() {

@@ -12,8 +12,9 @@ import AnalysisView from './components/AnalysisView';
 import MultiWalletView from './components/MultiWalletView';
 import ContractAnalysisView, { ContractAnalysisResult } from './components/ContractAnalysisView';
 import ComingSoonModal from './components/ComingSoonModal';
+import SybilDetector from './components/SybilDetector';
 
-type ViewMode = 'wallet' | 'contract' | 'compare';
+type ViewMode = 'wallet' | 'contract' | 'compare' | 'sybil';
 
 function App() {
     const { user, profile, loading: authLoading } = useAuth();
@@ -147,147 +148,191 @@ function App() {
                 {/* Only show analysis UI if authenticated */}
                 {user ? (
                     <>
-                        {/* Analysis Panel */}
-                        <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-                            {/* Mode Selector */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
-                                <div className="mode-selector">
+                        {/* Sybil Mode - Full Screen Component */}
+                        {viewMode === 'sybil' ? (
+                            <div style={{ marginBottom: 'var(--space-4)' }}>
+                                {/* Mode Selector - Compact */}
+                                <div className="mode-selector" style={{ marginBottom: 'var(--space-4)' }}>
                                     <button
-                                        className={`mode-btn ${viewMode === 'wallet' ? 'active' : ''}`}
+                                        className={`mode-btn ${(viewMode as ViewMode) === 'wallet' ? 'active' : ''}`}
                                         onClick={() => setViewMode('wallet')}
                                     >
                                         Wallet
                                     </button>
                                     <button
-                                        className={`mode-btn ${viewMode === 'contract' ? 'active' : ''}`}
+                                        className={`mode-btn ${(viewMode as ViewMode) === 'contract' ? 'active' : ''}`}
                                         onClick={() => setViewMode('contract')}
                                     >
                                         Contract
                                     </button>
                                     <button
-                                        className={`mode-btn ${viewMode === 'compare' ? 'active' : ''}`}
+                                        className={`mode-btn ${(viewMode as ViewMode) === 'compare' ? 'active' : ''}`}
                                         onClick={() => setViewMode('compare')}
                                     >
                                         Compare
                                     </button>
-                                </div>
-
-                                {/* Usage indicator */}
-                                {profile && (
-                                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-                                        {profile.usage.remaining === 'unlimited'
-                                            ? 'Unlimited'
-                                            : `${profile.usage.remaining} remaining today`}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Chain Selector */}
-                            <div style={{ marginBottom: 'var(--space-4)' }}>
-                                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 'var(--space-2)' }}>
-                                    Chain
-                                </div>
-                                <ChainSelector
-                                    selectedChain={selectedChain}
-                                    onSelect={handleChainSelect}
-                                />
-                            </div>
-
-                            {/* Input Fields */}
-                            {viewMode === 'wallet' && (
-                                <div style={{ marginBottom: 'var(--space-4)' }}>
-                                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 'var(--space-2)' }}>
-                                        Wallet Address
-                                    </div>
-                                    <WalletInput
-                                        value={walletAddresses[0] || ''}
-                                        onChange={(value) => handleWalletChange(0, value)}
-                                        placeholder="Enter wallet address (0x...)"
-                                    />
-                                </div>
-                            )}
-
-                            {viewMode === 'contract' && (
-                                <div style={{ marginBottom: 'var(--space-4)' }}>
-                                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 'var(--space-2)' }}>
-                                        Contract Address
-                                    </div>
-                                    <WalletInput
-                                        value={contractAddress}
-                                        onChange={setContractAddress}
-                                        placeholder="Enter contract address (0x...)"
-                                    />
-                                </div>
-                            )}
-
-                            {viewMode === 'compare' && (
-                                <div style={{ marginBottom: 'var(--space-4)' }}>
-                                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 'var(--space-2)' }}>
-                                        Wallet Addresses
-                                    </div>
-                                    {walletAddresses.map((address, index) => (
-                                        <div key={index} style={{ marginBottom: 'var(--space-2)' }}>
-                                            <WalletInput
-                                                value={address}
-                                                onChange={(value) => handleWalletChange(index, value)}
-                                                placeholder={`Wallet #${index + 1} (0x...)`}
-                                                onRemove={walletAddresses.length > 1 ? () => handleRemoveWallet(index) : undefined}
-                                            />
-                                        </div>
-                                    ))}
-                                    <button className="btn btn-secondary" onClick={handleAddWallet}>
-                                        + Add Wallet
+                                    <button
+                                        className={`mode-btn ${viewMode === 'sybil' ? 'active' : ''}`}
+                                        onClick={() => setViewMode('sybil')}
+                                        style={{ background: 'linear-gradient(135deg, #3a3a3f 0%, #1a1a1f 100%)' }}
+                                    >
+                                        Sybil
                                     </button>
                                 </div>
-                            )}
+                                <SybilDetector />
+                            </div>
+                        ) : (
+                            <>
+                                {/* Analysis Panel */}
+                                <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+                                    {/* Mode Selector */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+                                        <div className="mode-selector">
+                                            <button
+                                                className={`mode-btn ${viewMode === 'wallet' ? 'active' : ''}`}
+                                                onClick={() => setViewMode('wallet')}
+                                            >
+                                                Wallet
+                                            </button>
+                                            <button
+                                                className={`mode-btn ${viewMode === 'contract' ? 'active' : ''}`}
+                                                onClick={() => setViewMode('contract')}
+                                            >
+                                                Contract
+                                            </button>
+                                            <button
+                                                className={`mode-btn ${viewMode === 'compare' ? 'active' : ''}`}
+                                                onClick={() => setViewMode('compare')}
+                                            >
+                                                Compare
+                                            </button>
+                                            <button
+                                                className={`mode-btn ${(viewMode as ViewMode) === 'sybil' ? 'active' : ''}`}
+                                                onClick={() => setViewMode('sybil')}
+                                                style={{ background: (viewMode as ViewMode) === 'sybil' ? 'linear-gradient(135deg, #3a3a3f 0%, #1a1a1f 100%)' : undefined }}
+                                            >
+                                                Sybil
+                                            </button>
+                                        </div>
 
-                            {/* Analyze Button */}
-                            <button
-                                className="btn btn-primary btn-lg"
-                                style={{ width: '100%' }}
-                                onClick={
-                                    viewMode === 'wallet' ? handleAnalyzeWallet :
-                                        viewMode === 'contract' ? handleAnalyzeContract :
-                                            handleCompareWallets
-                                }
-                                disabled={loading}
-                            >
-                                {loading ? (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                                        <div className="loading-spinner" style={{ width: 16, height: 16 }} />
-                                        Analyzing...
-                                    </span>
-                                ) : (
-                                    viewMode === 'wallet' ? 'Analyze Wallet' :
-                                        viewMode === 'contract' ? 'Analyze Contract' :
-                                            'Compare Wallets'
-                                )}
-                            </button>
+                                        {/* Usage indicator */}
+                                        {profile && (
+                                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+                                                {profile.usage.remaining === 'unlimited'
+                                                    ? 'Unlimited'
+                                                    : `${profile.usage.remaining} remaining today`}
+                                            </div>
+                                        )}
+                                    </div>
 
-                            {/* Error Display */}
-                            {error && (
-                                <div className="alert danger" style={{ marginTop: 'var(--space-4)' }}>
-                                    {error}
+                                    {/* Chain Selector */}
+                                    <div style={{ marginBottom: 'var(--space-4)' }}>
+                                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 'var(--space-2)' }}>
+                                            Chain
+                                        </div>
+                                        <ChainSelector
+                                            selectedChain={selectedChain}
+                                            onSelect={handleChainSelect}
+                                        />
+                                    </div>
+
+                                    {/* Input Fields */}
+                                    {viewMode === 'wallet' && (
+                                        <div style={{ marginBottom: 'var(--space-4)' }}>
+                                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 'var(--space-2)' }}>
+                                                Wallet Address
+                                            </div>
+                                            <WalletInput
+                                                value={walletAddresses[0] || ''}
+                                                onChange={(value) => handleWalletChange(0, value)}
+                                                placeholder="Enter wallet address (0x...)"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {viewMode === 'contract' && (
+                                        <div style={{ marginBottom: 'var(--space-4)' }}>
+                                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 'var(--space-2)' }}>
+                                                Contract Address
+                                            </div>
+                                            <WalletInput
+                                                value={contractAddress}
+                                                onChange={setContractAddress}
+                                                placeholder="Enter contract address (0x...)"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {viewMode === 'compare' && (
+                                        <div style={{ marginBottom: 'var(--space-4)' }}>
+                                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 'var(--space-2)' }}>
+                                                Wallet Addresses
+                                            </div>
+                                            {walletAddresses.map((address, index) => (
+                                                <div key={index} style={{ marginBottom: 'var(--space-2)' }}>
+                                                    <WalletInput
+                                                        value={address}
+                                                        onChange={(value) => handleWalletChange(index, value)}
+                                                        placeholder={`Wallet #${index + 1} (0x...)`}
+                                                        onRemove={walletAddresses.length > 1 ? () => handleRemoveWallet(index) : undefined}
+                                                    />
+                                                </div>
+                                            ))}
+                                            <button className="btn btn-secondary" onClick={handleAddWallet}>
+                                                + Add Wallet
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Analyze Button */}
+                                    <button
+                                        className="btn btn-primary btn-lg"
+                                        style={{ width: '100%' }}
+                                        onClick={
+                                            viewMode === 'wallet' ? handleAnalyzeWallet :
+                                                viewMode === 'contract' ? handleAnalyzeContract :
+                                                    handleCompareWallets
+                                        }
+                                        disabled={loading}
+                                    >
+                                        {loading ? (
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                                                <div className="loading-spinner" style={{ width: 16, height: 16 }} />
+                                                Analyzing...
+                                            </span>
+                                        ) : (
+                                            viewMode === 'wallet' ? 'Analyze Wallet' :
+                                                viewMode === 'contract' ? 'Analyze Contract' :
+                                                    'Compare Wallets'
+                                        )}
+                                    </button>
+
+                                    {/* Error Display */}
+                                    {error && (
+                                        <div className="alert danger" style={{ marginTop: 'var(--space-4)' }}>
+                                            {error}
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
 
-                        {/* Results */}
-                        {viewMode === 'wallet' && walletResult && (
-                            <AnalysisView result={walletResult} />
-                        )}
+                                {/* Results */}
+                                {viewMode === 'wallet' && walletResult && (
+                                    <AnalysisView result={walletResult} />
+                                )}
 
-                        {viewMode === 'contract' && contractResult && (
-                            <ContractAnalysisView result={contractResult} />
-                        )}
+                                {viewMode === 'contract' && contractResult && (
+                                    <ContractAnalysisView result={contractResult} />
+                                )}
 
-                        {viewMode === 'compare' && multiWalletResult && (
-                            <MultiWalletView result={multiWalletResult} />
-                        )}
+                                {viewMode === 'compare' && multiWalletResult && (
+                                    <MultiWalletView result={multiWalletResult} />
+                                )}
 
-                        {/* Empty State */}
-                        {!walletResult && !multiWalletResult && !contractResult && !loading && (
-                            <EmptyState />
+                                {/* Empty State */}
+                                {!walletResult && !multiWalletResult && !contractResult && !loading && (
+                                    <EmptyState />
+                                )}
+                            </>
                         )}
                     </>
                 ) : null}

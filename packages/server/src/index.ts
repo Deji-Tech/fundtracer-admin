@@ -12,6 +12,7 @@ import { authMiddleware } from './middleware/auth.js';
 import { usageMiddleware } from './middleware/usage.js';
 import { analyzeRoutes } from './routes/analyze.js';
 import { userRoutes } from './routes/user.js';
+import { duneRoutes } from './routes/dune.js';
 
 dotenv.config();
 
@@ -37,10 +38,13 @@ app.use(cors({
     ],
     credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increased for large wallet lists
 
 // Initialize Firebase Admin
 initializeFirebase();
+
+console.log('[DEBUG] Default API Key Present:', !!process.env.DEFAULT_ETHERSCAN_API_KEY);
+console.log('[DEBUG] Default API Key Length:', process.env.DEFAULT_ETHERSCAN_API_KEY?.length);
 
 // Health check (public)
 app.get('/health', (req, res) => {
@@ -52,6 +56,7 @@ app.get('/health', (req, res) => {
 const apiRouter = express.Router();
 apiRouter.use('/user', authMiddleware, userRoutes);
 apiRouter.use('/analyze', authMiddleware, usageMiddleware, analyzeRoutes);
+apiRouter.use('/dune', authMiddleware, duneRoutes);
 
 // Mount router at both /api (for local dev) and root (for Netlify environment where /api might be stripped)
 app.use('/api', apiRouter);

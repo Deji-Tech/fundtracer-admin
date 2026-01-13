@@ -215,3 +215,29 @@ export type ProgressCallback = (progress: {
     total: number;
     message: string;
 }) => void;
+
+/** Contract interactor info */
+export interface ContractInteractor {
+    address: string;
+    interactionCount: number;
+    totalValueInEth: number;
+    totalValueOutEth: number;
+    firstInteraction: number;
+    lastInteraction: number;
+    fundingSource?: string;
+}
+
+/** Contract analysis result */
+export interface ContractAnalysisResult {
+    contractAddress: string;
+    chain: ChainId;
+    totalInteractors: number;
+    interactors: ContractInteractor[];
+    sharedFundingGroups: {
+        fundingSource: string;
+        wallets: string[];
+        count: number;
+    }[];
+    suspiciousPatterns: SuspiciousIndicator[];
+    riskScore: number;
+}

@@ -68,6 +68,7 @@ if (isInteractive && args.length === 0) {
     // Compare command
     program
         .command('compare <addresses...>')
+        .alias('sybil')
         .description('Compare multiple wallet addresses for Sybil detection')
         .option('-c, --chain <chain>', 'Blockchain network', 'ethereum')
         .option('-d, --depth <number>', 'Maximum depth for funding tree', '2')

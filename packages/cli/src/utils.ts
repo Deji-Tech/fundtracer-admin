@@ -22,10 +22,8 @@ export function getApiKeys(): ApiKeyConfig {
 
     // Fallback to environment variables
     return {
-        ethereum: process.env.ETHERSCAN_API_KEY || 'YourApiKeyToken',
-        linea: process.env.LINEASCAN_API_KEY || 'YourApiKeyToken',
-        arbitrum: process.env.ARBISCAN_API_KEY || 'YourApiKeyToken',
-        base: process.env.BASESCAN_API_KEY || 'YourApiKeyToken',
+        alchemy: process.env.ALCHEMY_API_KEY || 'your-alchemy-key',
+        moralis: process.env.MORALIS_API_KEY,
     };
 }
 

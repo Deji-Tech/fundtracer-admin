@@ -17,6 +17,7 @@ import {
     AnalysisSummary,
     MultiWalletResult,
     ChainId,
+    SuspiciousIndicator,
 } from '../types.js';
 import { ProviderFactory, ApiKeyConfig } from '../providers/ProviderFactory.js';
 
@@ -194,6 +195,209 @@ export class WalletAnalyzer {
         };
     }
 
+    /** Analyze contract interactors */
+    async analyzeContract(
+        contractAddress: string,
+        chainId: ChainId,
+        options: {
+            maxInteractors?: number;
+            analyzeFunding?: boolean;
+            // Allow external provider of interactors (like Dune)
+            externalInteractors?: string[];
+        } = {}
+    ): Promise<{
+        contractAddress: string;
+        chain: ChainId;
+        totalInteractors: number;
+        interactors: Array<{
+            address: string;
+            interactionCount: number;
+            totalValueInEth: number;
+            totalValueOutEth: number;
+            firstInteraction: number;
+            lastInteraction: number;
+            fundingSource?: string;
+        }>;
+        sharedFundingGroups: Array<{
+            fundingSource: string;
+            wallets: string[];
+            count: number;
+        }>;
+        suspiciousPatterns: SuspiciousIndicator[];
+        riskScore: number;
+    }> {
+        const provider = this.providerFactory.getProvider(chainId);
+        const normalizedAddr = contractAddress.toLowerCase();
+
+        let txs: Transaction[] = [];
+        const interactorMap = new Map<string, {
+            count: number;
+            valueIn: number;
+            valueOut: number;
+            firstTs: number;
+            lastTs: number;
+        }>();
+
+        // If external interactors provided (e.g. from Dune), use them directly
+        if (options.externalInteractors && options.externalInteractors.length > 0) {
+            this.reportProgress('Using provided interactors', 1, 4, `Processing ${options.externalInteractors.length} wallets...`);
+
+            // For external interactors, we only have the address initially
+            for (const addr of options.externalInteractors) {
+                const normalized = addr.toLowerCase();
+                interactorMap.set(normalized, {
+                    count: 1, // Assumed at least 1
+                    valueIn: 0,
+                    valueOut: 0,
+                    firstTs: Math.floor(Date.now() / 1000),
+                    lastTs: Math.floor(Date.now() / 1000)
+                });
+            }
+        } else {
+            this.reportProgress('Fetching contract transactions', 1, 4, 'Getting transactions to contract...');
+            // Fallback to slow RPC fetching
+            txs = await provider.getTransactions(normalizedAddr);
+
+            for (const tx of txs) {
+                // Skip if this is an outgoing tx from contract
+                if (tx.from === normalizedAddr) continue;
+
+                const addr = tx.from.toLowerCase();
+                const existing = interactorMap.get(addr);
+
+                if (existing) {
+                    existing.count++;
+                    existing.valueIn += tx.isIncoming ? tx.valueInEth : 0;
+                    existing.valueOut += !tx.isIncoming ? tx.valueInEth : 0;
+                    existing.firstTs = Math.min(existing.firstTs, tx.timestamp);
+                    existing.lastTs = Math.max(existing.lastTs, tx.timestamp);
+                } else {
+                    interactorMap.set(addr, {
+                        count: 1,
+                        valueIn: tx.isIncoming ? tx.valueInEth : 0,
+                        valueOut: !tx.isIncoming ? tx.valueInEth : 0,
+                        firstTs: tx.timestamp,
+                        lastTs: tx.timestamp,
+                    });
+                }
+            }
+        }
+
+        this.reportProgress('Processing interactors', 2, 4, `Found ${interactorMap.size} unique interactors`);
+
+        const maxInteractors = options.maxInteractors || 100;
+
+        // Convert to array and sort by interaction count
+        let interactors = Array.from(interactorMap.entries())
+            .map(([address, stats]) => ({
+                address,
+                interactionCount: stats.count,
+                totalValueInEth: stats.valueIn,
+                totalValueOutEth: stats.valueOut,
+                firstInteraction: stats.firstTs,
+                lastInteraction: stats.lastTs,
+            }))
+            .sort((a, b) => b.interactionCount - a.interactionCount)
+            .slice(0, maxInteractors);
+
+        // If getting funding, do it
+        const sharedFundingGroups: Array<{
+            fundingSource: string;
+            wallets: string[];
+            count: number;
+        }> = [];
+
+        if (options.analyzeFunding !== false) {
+            this.reportProgress('Analyzing funding sources', 2, 4, `Tracing funding for ${interactors.length} wallets...`);
+
+            const fundingMap = new Map<string, string[]>();
+
+            // Use batched processing with rate limiting logic
+            const BATCH_SIZE = 20;
+
+            for (let i = 0; i < interactors.length; i += BATCH_SIZE) {
+                const batch = interactors.slice(i, i + BATCH_SIZE);
+
+                await Promise.all(batch.map(async (interactor) => {
+                    try {
+                        const funding = await provider.getFirstFunder(interactor.address);
+                        if (funding && funding.address) {
+                            (interactor as any).fundingSource = funding.address;
+
+                            const existing = fundingMap.get(funding.address) || [];
+                            existing.push(interactor.address);
+                            fundingMap.set(funding.address, existing);
+                        }
+                    } catch (e) {
+                        // ignore errors
+                    }
+                }));
+
+                // Small delay to be nice to RPCs
+                await new Promise(r => setTimeout(r, 100));
+                this.reportProgress('Analyzing funding sources', 2, 4, `Analyzed ${Math.min(i + BATCH_SIZE, interactors.length)}/${interactors.length}...`);
+            }
+
+
+        }
+
+
+        this.reportProgress('Generating report', 4, 4, 'Analyzing patterns...');
+
+        // Detect suspicious patterns
+        const suspiciousPatterns: SuspiciousIndicator[] = [];
+        let riskScore = 0;
+
+        // Check for Sybil-like behavior (many wallets from same funder)
+        if (sharedFundingGroups.length > 0) {
+            const largestGroup = sharedFundingGroups.reduce((a, b) => a.count > b.count ? a : b);
+            if (largestGroup.count >= 5) {
+                suspiciousPatterns.push({
+                    type: 'sybil_farming',
+                    severity: 'high',
+                    description: `${largestGroup.count} interacting wallets share the same funding source`,
+                    evidence: largestGroup.wallets.slice(0, 5),
+                    score: 30,
+                });
+                riskScore += 30;
+            } else if (largestGroup.count >= 3) {
+                suspiciousPatterns.push({
+                    type: 'sybil_farming',
+                    severity: 'medium',
+                    description: `${largestGroup.count} interacting wallets share the same funding source`,
+                    evidence: largestGroup.wallets,
+                    score: 15,
+                });
+                riskScore += 15;
+            }
+        }
+
+        // Check for fresh wallets
+        const now = Math.floor(Date.now() / 1000);
+        const thirtyDaysAgo = now - (30 * 24 * 60 * 60);
+        const freshWallets = interactors.filter(i => i.firstInteraction > thirtyDaysAgo);
+        if (freshWallets.length > interactors.length * 0.5) {
+            suspiciousPatterns.push({
+                type: 'fresh_wallet',
+                severity: 'medium',
+                description: `${freshWallets.length} of ${interactors.length} interactors are fresh wallets (<30 days old)`,
+                evidence: freshWallets.slice(0, 5).map(w => w.address),
+                score: 20,
+            });
+            riskScore += 20;
+        }
+
+        return {
+            contractAddress: normalizedAddr,
+            chain: chainId,
+            totalInteractors: interactorMap.size,
+            interactors,
+            sharedFundingGroups,
+            suspiciousPatterns,
+            riskScore: Math.min(100, riskScore),
+        };
+    }
+
     /** Merge and dedupe transactions */
     private mergeTransactions(
         normalTxs: Transaction[],
@@ -344,10 +548,15 @@ export class WalletAnalyzer {
         });
     }
 
-    /** Report progress */
-    private reportProgress(stage: string, current: number, total: number, message: string): void {
+    // Helper used by other methods
+    private reportProgress(stage: string, current: number, total: number, message: string) {
         if (this.onProgress) {
-            this.onProgress({ stage, current, total, message });
+            this.onProgress({
+                stage,
+                current,
+                total,
+                message,
+            });
         }
     }
 }

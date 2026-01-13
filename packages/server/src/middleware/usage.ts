@@ -33,15 +33,16 @@ export async function usageMiddleware(
         // Check daily usage for free tier
         const usageToday = userData?.dailyUsage?.[today] || 0;
 
-        if (usageToday >= FREE_DAILY_LIMIT) {
-            return res.status(429).json({
-                error: 'Daily limit exceeded',
-                message: `Free tier limit is ${FREE_DAILY_LIMIT} analyses per day. Add your own API key for unlimited usage.`,
-                limit: FREE_DAILY_LIMIT,
-                used: usageToday,
-                resetsAt: getNextMidnight(),
-            });
-        }
+        // TEMPORARILY DISABLED FOR TESTING
+        // if (usageToday >= FREE_DAILY_LIMIT) {
+        //     return res.status(429).json({
+        //         error: 'Daily limit exceeded',
+        //         message: `Free tier limit is ${FREE_DAILY_LIMIT} analyses per day. Add your own API key for unlimited usage.`,
+        //         limit: FREE_DAILY_LIMIT,
+        //         used: usageToday,
+        //         resetsAt: getNextMidnight(),
+        //     });
+        // }
 
         // Increment usage counter
         await userRef.set({

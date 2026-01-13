@@ -53,7 +53,8 @@ async function apiRequest<T>(
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(data.message || data.error || 'Request failed');
+        const errorMessage = data.details || data.message || data.error || 'Request failed';
+        throw new Error(errorMessage);
     }
 
     return data;
@@ -64,12 +65,13 @@ export async function getProfile(): Promise<UserProfile> {
     return apiRequest('/api/user/profile');
 }
 
-export async function saveApiKey(apiKey: string): Promise<{ success: boolean; message: string }> {
-    return apiRequest('/api/user/api-key', 'POST', { apiKey });
+// Alchemy API key management
+export async function saveAlchemyKey(apiKey: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest('/api/user/alchemy-api-key', 'POST', { apiKey });
 }
 
-export async function removeApiKey(): Promise<{ success: boolean; message: string }> {
-    return apiRequest('/api/user/api-key', 'DELETE');
+export async function removeAlchemyKey(): Promise<{ success: boolean; message: string }> {
+    return apiRequest('/api/user/alchemy-api-key', 'DELETE');
 }
 
 // Analysis endpoints
@@ -95,4 +97,35 @@ export async function analyzeContract(
     options?: any
 ): Promise<ApiResponse<any>> {
     return apiRequest('/api/analyze/contract', 'POST', { contractAddress, chain, options });
+}
+
+export async function analyzeSybil(
+    contractAddress: string,
+    chain: ChainId,
+    options?: { maxInteractors?: number; minClusterSize?: number }
+): Promise<ApiResponse<any>> {
+    return apiRequest('/api/analyze/sybil', 'POST', { contractAddress, chain, options });
+}
+
+/** Analyze a list of addresses directly (paste from Dune) */
+export async function analyzeSybilAddresses(
+    addresses: string[],
+    chain: ChainId,
+    options?: { minClusterSize?: number }
+): Promise<ApiResponse<any>> {
+    return apiRequest('/api/analyze/sybil-addresses', 'POST', { addresses, chain, options });
+}
+
+/** Fetch contract interactors from Dune Analytics */
+export async function fetchDuneInteractors(
+    contractAddress: string,
+    chain: ChainId,
+    options?: { limit?: number; customApiKey?: string }
+): Promise<{ success: boolean; wallets?: string[]; count?: number; error?: string }> {
+    return apiRequest('/api/dune/fetch', 'POST', {
+        contractAddress,
+        chain,
+        limit: options?.limit || 1000,
+        customApiKey: options?.customApiKey,
+    });
 }

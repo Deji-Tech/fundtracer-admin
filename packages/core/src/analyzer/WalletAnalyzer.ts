@@ -465,11 +465,16 @@ export class WalletAnalyzer {
         const successfulTxs = transactions.filter(tx => tx.status === 'success').length;
         const failedTxs = transactions.filter(tx => tx.status === 'failed').length;
 
-        const totalSent = transactions
+        // Only sum ETH transfers (not token/nft transfers which have different value scales)
+        const ethTransfers = transactions.filter(tx =>
+            tx.category === 'transfer' || tx.category === 'contract_call'
+        );
+
+        const totalSent = ethTransfers
             .filter(tx => !tx.isIncoming)
             .reduce((sum, tx) => sum + tx.valueInEth, 0);
 
-        const totalReceived = transactions
+        const totalReceived = ethTransfers
             .filter(tx => tx.isIncoming)
             .reduce((sum, tx) => sum + tx.valueInEth, 0);
 

@@ -145,8 +145,12 @@ export class FundingTreeBuilder {
             node.totalValueInEth = relevantTxs.reduce((sum, tx) => sum + tx.valueInEth, 0);
             node.totalValue = (node.totalValueInEth * 1e18).toString();
 
-        } catch (error) {
-            console.error(`Error building tree for ${normalizedAddr}:`, error);
+        } catch (error: any) {
+            // Log only a brief error message, not full stack trace
+            const msg = error?.response?.status === 429
+                ? 'Rate limited by API'
+                : (error?.message || 'Unknown error');
+            console.error(`[${normalizedAddr.slice(0, 10)}...] Skipped: ${msg}`);
         }
 
         return node;

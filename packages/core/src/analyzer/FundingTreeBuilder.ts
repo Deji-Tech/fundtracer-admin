@@ -93,10 +93,13 @@ export class FundingTreeBuilder {
                 minValue: config.minValueEth,
             });
 
-            // Filter by direction
+            // Filter by direction AND only native ETH transfers (not tokens which have different value scales)
+            const isEthTransfer = (tx: Transaction) =>
+                tx.category === 'transfer' || tx.category === 'contract_call';
+
             const relevantTxs = direction === 'source'
-                ? txs.filter(tx => tx.isIncoming && tx.valueInEth > 0)
-                : txs.filter(tx => !tx.isIncoming && tx.valueInEth > 0);
+                ? txs.filter(tx => tx.isIncoming && tx.valueInEth > 0 && isEthTransfer(tx))
+                : txs.filter(tx => !tx.isIncoming && tx.valueInEth > 0 && isEthTransfer(tx));
 
             // Aggregate by counterparty
             const counterpartyMap = new Map<string, { txs: Transaction[]; totalValue: number }>();

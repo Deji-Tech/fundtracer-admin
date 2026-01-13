@@ -3,8 +3,16 @@
     "compilerOptions": {
         "outDir": "./dist",
         "rootDir": "./src",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
         "noImplicitAny": false,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "baseUrl": ".",
+        "paths": {
+            "@fundtracer/core": [
+                "../core/src/index"
+            ]
+        }
     },
     "include": [
         "src/**/*"

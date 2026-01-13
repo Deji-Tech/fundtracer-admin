@@ -177,14 +177,19 @@ async function interactiveCompare() {
 }
 
 async function interactiveConfig() {
-    const chains = getEnabledChains();
+    const providers = [
+        { name: 'Alchemy (Primary RPC - Recommended)', value: 'alchemy' },
+        { name: 'Moralis (10x faster funding trace)', value: 'moralis' },
+        { name: 'Dune (Fast contract analysis)', value: 'dune' },
+        { name: 'Etherscan (Ethereum fallback)', value: 'etherscan' },
+    ];
 
-    const { chain } = await inquirer.prompt([
+    const { provider } = await inquirer.prompt([
         {
             type: 'list',
-            name: 'chain',
-            message: 'Select chain to configure:',
-            choices: chains.map(c => ({ name: c.name, value: c.id })),
+            name: 'provider',
+            message: 'Select provider to configure:',
+            choices: providers,
         },
     ]);
 
@@ -192,13 +197,13 @@ async function interactiveConfig() {
         {
             type: 'password',
             name: 'apiKey',
-            message: `Enter API key for ${chain}:`,
+            message: `Enter API key for ${provider}:`,
             mask: '*',
         },
     ]);
 
     if (apiKey) {
         const { configCommand } = await import('./config.js');
-        await configCommand({ setKey: `${chain}:${apiKey}` });
+        await configCommand({ setKey: `${provider}:${apiKey}` });
     }
 }

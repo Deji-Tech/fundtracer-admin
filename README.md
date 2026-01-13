@@ -1,177 +1,121 @@
-# FundTracer by DT
+# 🕵️‍♂️ FundTracer by DT
 
 <p align="center">
-  <img src="packages/web/public/logo.png" alt="FundTracer Logo" width="200">
+  <img src="packages/web/public/logo.png" alt="FundTracer Logo" width="220">
 </p>
 
 <p align="center">
-  <strong>Blockchain Wallet Forensics & Sybil Detection Tool</strong><br>
-  Trace funding sources, detect suspicious patterns, and identify coordinated wallet behavior.
+  <strong>The Ultimate Blockchain Forensics & Sybil Detection Suite</strong><br>
+  Trace recursive funding sources, visualize complex wallet networks, and detect coordinated bot activity in a flash.
+</p>
+
+<p align="center">
+  <a href="#-key-features">Features</a> •
+  <a href="#-cli-quickstart">CLI</a> •
+  <a href="#-web-dashboard">Web Dashboard</a> •
+  <a href="#-configuration">Setup</a> •
+  <a href="#-supported-chains">Chains</a>
 </p>
 
 ---
 
-## Quick Start
+## ⚡ The V2 Speed Revolution
 
-### CLI (Terminal)
+We've overhauled FundTracer to be the fastest forensics tool in the space. By integrating specialized APIs, we've reduced analysis time from **minutes to seconds**.
+
+- **Instant Contract Profiling (Dune)**: Fetch thousands of interactors in <3s using Dune Analytics API. No more slow RPC scanning.
+- **Batched Funding Lookups (Moralis)**: Trace recursive funding for 100+ addresses simultaneously using Moralis Batch API.
+- **Deep Sybil Heuristics**: Our proprietary engine detects coordinated "Same-Block" movements, circular flows, and shared ancestor nodes.
+
+---
+
+## 🔥 Key Features
+
+| Feature | What it does |
+|---------|-------------|
+| **Deep Funding Trace** | Recursively finds the ultimate source of funds (Exchanges, Mixers, or Seed Wallets). |
+| **Sybil Detection** | Identifies shared funding sources between multiple wallets to catch "Airdrop Farmers". |
+| **D3 Visualizations** | Interactive, force-directed graphs showing exactly how funds flow through the network. |
+| **Risk Engine** | Automated 0-100 risk score based on 15+ "Vicious" patterns ( MEV bots, mixers, dust). |
+| **Interactive CLI** | Full-featured terminal experience with ASCII art and interactive prompts. |
+
+---
+
+## 💻 CLI Quickstart
+
+Get up and running in your terminal in under 60 seconds.
 
 ```bash
-# Clone and install
+# Clone the repository
 git clone https://github.com/Deji-Tech/fundtracer-by-dt.git
 cd fundtracer-by-dt
+
+# Install and build
 npm install
+npm run build
 
-# Build and link CLI globally
-cd packages/cli && npm run build && npm link
+# Link CLI globally (optional)
+cd packages/cli && npm link
 
-# Now just type:
+# Start exploring!
 fundtracer
 ```
 
-You'll see a beautiful gradient ASCII banner and an interactive menu:
-
-```
-  ███████╗██╗   ██╗███╗   ██╗██████╗ ████████╗██████╗  █████╗  ██████╗███████╗██████╗ 
-  ██╔════╝██║   ██║████╗  ██║██╔══██╗╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██╔════╝██╔══██╗
-  █████╗  ██║   ██║██╔██╗ ██║██║  ██║   ██║   ██████╔╝███████║██║     █████╗  ██████╔╝
-  ██╔══╝  ██║   ██║██║╚██╗██║██║  ██║   ██║   ██╔══██╗██╔══██║██║     ██╔══╝  ██╔══██╗
-  ██║     ╚██████╔╝██║ ╚████║██████╔╝   ██║   ██║  ██║██║  ██║╚██████╗███████╗██║  ██║
-  ╚═╝      ╚═════╝ ╚═╝  ╚═══╝╚═════╝    ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝╚═╝  ╚═╝
-
-                              by DT • Blockchain Wallet Forensics Tool
-```
-
-### Web Dashboard
-
-```bash
-# Terminal 1: Start API server
-npm run dev:server
-
-# Terminal 2: Start web app
-npm run dev
-```
-
-Visit `http://localhost:5173` and sign in with Google.
+### Common Commands
+- `fundtracer analyze <address>`: Deep-dive into a single wallet.
+- `fundtracer sybil <addr1> <addr2>`: Detect if wallets are related.
+- `fundtracer config --set-key alchemy:KEY`: Add your API keys for unlimited usage.
 
 ---
 
-## Features
+## 🌐 Web Dashboard
 
-| Feature | Description |
-|---------|-------------|
-| **Wallet Analysis** | Deep-dive into any EVM address to trace funding sources and destinations |
-| **Sybil Detection** | Compare multiple wallets to find shared funding patterns |
-| **Contract Analysis** | Analyze contract interactors for coordinated behavior |
-| **Risk Scoring** | Automatic detection of suspicious activity with 0-100 risk score |
+For the full visual experience, run the FundTracer Dashboard locally:
 
-## What We Detect
-
-- Rapid fund movement (flash loans, MEV bots)
-- Same-block transactions (bot activity)
-- Circular fund flows (wash trading)
-- Sybil farming patterns (shared funding sources)
-- Fresh wallet with unusually high activity
-- Dust attacks
+1. **Start the API Server**:
+   ```bash
+   npm run dev:server
+   ```
+2. **Start the Vite App**:
+   ```bash
+   npm run dev
+   ```
+3. Open `http://localhost:5173` to see the live graph.
 
 ---
 
-## Project Structure
+## ⚙️ Configuration
 
-```
-fundtracer-by-dt/
-├── packages/
-│   ├── core/      # Analysis engine, providers, detection algorithms
-│   ├── web/       # React dashboard with D3 visualizations
-│   ├── server/    # Express API with Firebase auth
-│   └── cli/       # Terminal tool with ASCII banner
-```
+FundTracer works out of the box with default keys, but for production or heavy use, add your own providers in `packages/server/.env`:
 
-## Supported Chains
-
-| Chain | Status |
-|-------|--------|
-| Ethereum | Supported |
-| Linea | Supported |
-| Arbitrum | Supported |
-| Base | Supported |
-| Optimism | Coming Soon |
-| Polygon | Coming Soon |
+| Variable | Provider | Purpose |
+|----------|----------|---------|
+| `ALCHEMY_API_KEY` | [Alchemy](https://alchemy.com) | Core transaction and block data (Required). |
+| `MORALIS_API_KEY` | [Moralis](https://moralis.io) | Batched funding lookups (Recommended for Speed). |
+| `DUNE_API_KEY` | [Dune](https://dune.com) | Instant contract interaction analysis. |
 
 ---
 
-## Configuration
+## ⛓️ Supported Chains
 
-### Environment Variables
-
-**Server** (`packages/server/.env`):
-```env
-DEFAULT_ETHERSCAN_API_KEY=your_key
-FIREBASE_PROJECT_ID=your_project
-FIREBASE_CLIENT_EMAIL=your_email
-FIREBASE_PRIVATE_KEY="your_key"
-```
-
-**Web** (`packages/web/.env`):
-```env
-VITE_FIREBASE_API_KEY=your_key
-VITE_FIREBASE_AUTH_DOMAIN=your_domain
-VITE_FIREBASE_PROJECT_ID=your_project
-VITE_API_URL=http://localhost:3001
-```
-
-### CLI Configuration
-
-```bash
-# Set your Etherscan API key
-fundtracer config --set-key YOUR_API_KEY
-
-# Verify
-fundtracer config --show
-```
-
-### Authentication Setup
-
-**1. Authorized Domains**
-If Google/GitHub Sign-in fails on Netlify:
-1. Go to Firebase Console > Authentication > Settings > Authorized Domains.
-2. Add your Netlify domain (e.g., `fundtracer-by-dt.netlify.app`).
-
-**2. GitHub Authentication**
-To enable "Sign in with GitHub":
-1. Go to GitHub > Settings > Developer settings > OAuth Apps > New OAuth App.
-2. Set "Authorization callback URL" to: `https://<YOUR-PROJECT-ID>.firebaseapp.com/__/auth/handler`
-3. Copy **Client ID** and **Client Secret**.
-4. Go to Firebase Console > Authentication > Sign-in method > Add new provider > GitHub.
-5. Paste the Client ID and Secret.
-
-### Netlify Deployment Note
-
-If your build fails with **"Exposed secrets detected"**:
-1. This is a false positive. Firebase keys (`VITE_FIREBASE_API_KEY`, etc.) are public identifiers, not true secrets.
-2. Go to your **Netlify Site Settings > Build & Deploy > Security**.
-3. Locate "Sensitive variable policy" or "Secrets scanning".
-4. Select **"Allow build"** or explicitly allow the Firebase variables.
-
+- ✅ **Ethereum Mainnet**
+- ✅ **Linea** (Optimized for Airdrop farmers detection)
+- ✅ **Arbitrum**
+- ✅ **Base**
+- ⏳ **Optimism** (Coming Soon)
+- ⏳ **Polygon** (Coming Soon)
 
 ---
 
-## Usage Limits
+## 🛠️ Tech Stack
 
-- **Free tier**: 7 analyses per day
-- **Custom API key**: Unlimited (add your own Etherscan key)
-
----
-
-## Tech Stack
-
-- **Frontend**: React + Vite + D3.js
-- **Backend**: Express + Firebase Admin SDK
-- **Auth**: Google Sign-in (Firebase)
-- **CLI**: Commander + Inquirer + Chalk
-- **Analysis**: Custom TypeScript engine
+- **Engine**: TypeScript Core with Recursive Dependency Resolution.
+- **Frontend**: React 18, Vite, D3.js (Force Layouts).
+- **Backend**: Node.js, Express, Firebase (Auth/Analytics).
+- **Styling**: Premium Glassmorphism & Cyberpunk Aesthetics.
 
 ---
 
-## License
+## 📄 License
 
-MIT License - Built by **DT Development**
+MIT © Built with ❤️ by **DT Development**

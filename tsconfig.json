@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+        "baseUrl": ".",
         "target": "ES2022",
         "module": "ESNext",
         "moduleResolution": "bundler",
@@ -15,6 +16,11 @@
         "resolveJsonModule": true,
         "declaration": true,
         "declarationMap": true,
-        "sourceMap": true
+        "sourceMap": true,
+        "paths": {
+            "@fundtracer/core": [
+                "./packages/core/src/index"
+            ]
+        }
     }
 }

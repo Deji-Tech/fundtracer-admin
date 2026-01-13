@@ -1,208 +1,166 @@
 // ============================================================
 // FundTracer by DT - Base Provider Abstract Class
 // ============================================================
-
-import axios, { AxiosInstance } from 'axios';
-import {
-    ChainId,
-    ChainConfig,
-    Transaction,
-    WalletInfo,
-    TokenTransfer,
-    TxStatus,
-    TxCategory,
-    ExplorerApiResponse,
-    FilterOptions,
-} from '../types.js';
+import axios from 'axios';
 import { getChainConfig } from '../chains.js';
-
 /** Rate limiter to respect API limits */
 class RateLimiter {
-    private queue: Array<() => void> = [];
-    private processing = false;
-    private lastCall = 0;
-    private minInterval: number;
-
-    constructor(callsPerSecond: number = 2) {
+    queue = [];
+    processing = false;
+    lastCall = 0;
+    minInterval;
+    constructor(callsPerSecond = 2) {
         this.minInterval = 1000 / callsPerSecond;
     }
-
-    async throttle(): Promise<void> {
+    async throttle() {
         return new Promise((resolve) => {
             this.queue.push(resolve);
             this.processQueue();
         });
     }
-
-    private async processQueue() {
-        if (this.processing || this.queue.length === 0) return;
+    async processQueue() {
+        if (this.processing || this.queue.length === 0)
+            return;
         this.processing = true;
-
         while (this.queue.length > 0) {
             const now = Date.now();
             const waitTime = Math.max(0, this.minInterval - (now - this.lastCall));
-
             if (waitTime > 0) {
                 await new Promise(r => setTimeout(r, waitTime));
             }
-
             const resolve = this.queue.shift();
             if (resolve) {
                 this.lastCall = Date.now();
                 resolve();
             }
         }
-
         this.processing = false;
     }
 }
-
 /** Cache for API responses */
 class ResponseCache {
-    private cache = new Map<string, { data: unknown; expires: number }>();
-    private ttl: number;
-
-    constructor(ttlMinutes: number = 5) {
+    cache = new Map();
+    ttl;
+    constructor(ttlMinutes = 5) {
         this.ttl = ttlMinutes * 60 * 1000;
     }
-
-    get<T>(key: string): T | null {
+    get(key) {
         const entry = this.cache.get(key);
-        if (!entry) return null;
+        if (!entry)
+            return null;
         if (Date.now() > entry.expires) {
             this.cache.delete(key);
             return null;
         }
-        return entry.data as T;
+        return entry.data;
     }
-
-    set(key: string, data: unknown): void {
+    set(key, data) {
         this.cache.set(key, {
             data,
             expires: Date.now() + this.ttl,
         });
     }
-
-    clear(): void {
+    clear() {
         this.cache.clear();
     }
 }
-
-export abstract class BaseProvider {
-    protected chainConfig: ChainConfig;
-    protected apiKey: string;
-    protected client: AxiosInstance;
-    protected rateLimiter: RateLimiter;
-    protected cache: ResponseCache;
-
-    constructor(chainId: ChainId, apiKey: string) {
+export class BaseProvider {
+    chainConfig;
+    apiKey;
+    client;
+    rateLimiter;
+    cache;
+    constructor(chainId, apiKey) {
         this.chainConfig = getChainConfig(chainId);
         this.apiKey = apiKey;
         this.rateLimiter = new RateLimiter(5); // User requested 5 calls/sec
         this.cache = new ResponseCache(5);
-
         this.client = axios.create({
             baseURL: this.chainConfig.apiUrl,
             timeout: 30000,
         });
     }
-
-    get chainId(): ChainId {
+    get chainId() {
         return this.chainConfig.id;
     }
-
-    get chainName(): string {
+    get chainName() {
         return this.chainConfig.name;
     }
-
     /** Make API request with rate limiting, caching, and retries */
-    protected async request<T>(
-        params: Record<string, string | number>,
-        retries = 3
-    ): Promise<T> {
+    async request(params, retries = 3) {
         const cacheKey = JSON.stringify(params);
-        const cached = this.cache.get<T>(cacheKey);
-        if (cached) return cached;
-
+        const cached = this.cache.get(cacheKey);
+        if (cached)
+            return cached;
         await this.rateLimiter.throttle();
-
         const requestParams = {
             ...params,
             apikey: this.apiKey?.trim(),
             chainid: String(this.chainConfig.chainId),
         };
-
         // Debug logging disabled for browser compatibility
-
         try {
-            const response = await this.client.get<ExplorerApiResponse<T>>('', {
+            const response = await this.client.get('', {
                 params: requestParams,
             });
-
             if (response.data.status !== '1' && response.data.message !== 'No transactions found') {
                 const errorResult = JSON.stringify(response.data.result);
-
                 // Check for rate limit error
                 if (typeof response.data.result === 'string' && response.data.result.includes('Max calls per sec')) {
                     if (retries > 0) {
                         console.warn(`[WARN] Rate limit hit. Retrying in 1s... (${retries} left)`);
                         await new Promise(r => setTimeout(r, 1000));
-                        return this.request<T>(params, retries - 1);
+                        return this.request(params, retries - 1);
                     }
                 }
-
                 console.error(`[DEBUG] Etherscan Error Result:`, errorResult);
                 throw new Error(`API Error: ${response.data.message} - ${errorResult}`);
             }
-
             this.cache.set(cacheKey, response.data.result);
             return response.data.result;
-        } catch (error) {
+        }
+        catch (error) {
             // Retry on network errors
             if (retries > 0) {
                 console.warn(`[WARN] Request failed. Retrying... (${retries} left)`);
                 await new Promise(r => setTimeout(r, 1000));
-                return this.request<T>(params, retries - 1);
+                return this.request(params, retries - 1);
             }
             throw error;
         }
     }
-
     /** Get wallet balance in Wei */
-    async getBalance(address: string): Promise<string> {
-        return this.request<string>({
+    async getBalance(address) {
+        return this.request({
             module: 'account',
             action: 'balance',
             address,
             tag: 'latest',
         });
     }
-
     /** Check if address is a contract */
-    async isContract(address: string): Promise<boolean> {
+    async isContract(address) {
         try {
-            const code = await this.request<string>({
+            const code = await this.request({
                 module: 'proxy',
                 action: 'eth_getCode',
                 address,
                 tag: 'latest',
             });
             return code !== '0x';
-        } catch {
+        }
+        catch {
             return false;
         }
     }
-
     /** Get wallet info */
-    async getWalletInfo(address: string): Promise<WalletInfo> {
+    async getWalletInfo(address) {
         const [balance, isContract, txs] = await Promise.all([
             this.getBalance(address),
             this.isContract(address),
             this.getTransactions(address, { status: ['success', 'failed'] }),
         ]);
-
         const timestamps = txs.map(tx => tx.timestamp).filter(t => t > 0);
-
         return {
             address: address.toLowerCase(),
             chain: this.chainId,
@@ -214,13 +172,9 @@ export abstract class BaseProvider {
             isContract,
         };
     }
-
     /** Get normal transactions for an address */
-    async getTransactions(
-        address: string,
-        filters?: FilterOptions
-    ): Promise<Transaction[]> {
-        const rawTxs = await this.request<RawTransaction[]>({
+    async getTransactions(address, filters) {
+        const rawTxs = await this.request({
             module: 'account',
             action: 'txlist',
             address,
@@ -230,25 +184,18 @@ export abstract class BaseProvider {
             offset: 10000,
             sort: 'desc',
         });
-
-        if (!Array.isArray(rawTxs)) return [];
-
+        if (!Array.isArray(rawTxs))
+            return [];
         let transactions = rawTxs.map(tx => this.normalizeTransaction(tx, address));
-
         // Apply filters
         if (filters) {
             transactions = this.applyFilters(transactions, filters);
         }
-
         return transactions;
     }
-
     /** Get internal transactions for an address */
-    async getInternalTransactions(
-        address: string,
-        filters?: FilterOptions
-    ): Promise<Transaction[]> {
-        const rawTxs = await this.request<RawInternalTransaction[]>({
+    async getInternalTransactions(address, filters) {
+        const rawTxs = await this.request({
             module: 'account',
             action: 'txlistinternal',
             address,
@@ -258,24 +205,17 @@ export abstract class BaseProvider {
             offset: 10000,
             sort: 'desc',
         });
-
-        if (!Array.isArray(rawTxs)) return [];
-
+        if (!Array.isArray(rawTxs))
+            return [];
         let transactions = rawTxs.map(tx => this.normalizeInternalTransaction(tx, address));
-
         if (filters) {
             transactions = this.applyFilters(transactions, filters);
         }
-
         return transactions;
     }
-
     /** Get ERC20 token transfers */
-    async getTokenTransfers(
-        address: string,
-        filters?: FilterOptions
-    ): Promise<TokenTransfer[]> {
-        const rawTransfers = await this.request<RawTokenTransfer[]>({
+    async getTokenTransfers(address, filters) {
+        const rawTransfers = await this.request({
             module: 'account',
             action: 'tokentx',
             address,
@@ -285,9 +225,8 @@ export abstract class BaseProvider {
             offset: 10000,
             sort: 'desc',
         });
-
-        if (!Array.isArray(rawTransfers)) return [];
-
+        if (!Array.isArray(rawTransfers))
+            return [];
         return rawTransfers.map(t => ({
             tokenAddress: t.contractAddress.toLowerCase(),
             tokenName: t.tokenName,
@@ -299,31 +238,28 @@ export abstract class BaseProvider {
             valueFormatted: parseFloat(t.value) / Math.pow(10, parseInt(t.tokenDecimal, 10)),
         }));
     }
-
     /** Get the first funder of an address (Etherscan V2 API) */
-    async getFirstFunder(address: string): Promise<{ funder: string; tx: Transaction } | null> {
+    async getFirstFunder(address) {
         try {
             // Use funded by API if available
-            const result = await this.request<{ address: string; txHash: string }>({
+            const result = await this.request({
                 module: 'account',
                 action: 'fundedby',
                 address,
             });
-
             if (result && result.address) {
                 const txs = await this.getTransactions(address);
                 const fundingTx = txs.find(tx => tx.hash.toLowerCase() === result.txHash.toLowerCase());
-
                 return {
                     funder: result.address.toLowerCase(),
                     tx: fundingTx || txs[txs.length - 1], // Fallback to first tx
                 };
             }
-        } catch {
+        }
+        catch {
             // Fallback: find the earliest incoming transaction
             const txs = await this.getTransactions(address);
             const incomingTxs = txs.filter(tx => tx.isIncoming && tx.valueInEth > 0);
-
             if (incomingTxs.length > 0) {
                 const firstTx = incomingTxs[incomingTxs.length - 1];
                 return {
@@ -332,16 +268,13 @@ export abstract class BaseProvider {
                 };
             }
         }
-
         return null;
     }
-
     /** Normalize raw transaction to our format */
-    protected normalizeTransaction(raw: RawTransaction, viewerAddress: string): Transaction {
+    normalizeTransaction(raw, viewerAddress) {
         const value = raw.value || '0';
         const gasUsed = raw.gasUsed || '0';
         const gasPrice = raw.gasPrice || '0';
-
         return {
             hash: raw.hash.toLowerCase(),
             blockNumber: parseInt(raw.blockNumber, 10),
@@ -360,14 +293,9 @@ export abstract class BaseProvider {
             isIncoming: raw.to?.toLowerCase() === viewerAddress.toLowerCase(),
         };
     }
-
     /** Normalize internal transaction */
-    protected normalizeInternalTransaction(
-        raw: RawInternalTransaction,
-        viewerAddress: string
-    ): Transaction {
+    normalizeInternalTransaction(raw, viewerAddress) {
         const value = raw.value || '0';
-
         return {
             hash: raw.hash.toLowerCase(),
             blockNumber: parseInt(raw.blockNumber, 10),
@@ -384,22 +312,18 @@ export abstract class BaseProvider {
             isIncoming: raw.to?.toLowerCase() === viewerAddress.toLowerCase(),
         };
     }
-
     /** Categorize transaction type */
-    protected categorizeTransaction(raw: RawTransaction): TxCategory {
+    categorizeTransaction(raw) {
         // Contract creation
         if (!raw.to || raw.to === '') {
             return 'contract_creation';
         }
-
         // Simple transfer (no input data)
         if (!raw.input || raw.input === '0x') {
             return 'transfer';
         }
-
         // Try to identify by method signature
         const methodId = raw.input.slice(0, 10).toLowerCase();
-
         // Common DEX methods
         const dexMethods = [
             '0x7ff36ab5', // swapExactETHForTokens
@@ -415,106 +339,60 @@ export abstract class BaseProvider {
             '0xc04b8d59', // exactInput
             '0x414bf389', // exactInputSingle V3
         ];
-
         if (dexMethods.includes(methodId)) {
             return 'dex_swap';
         }
-
         // ERC20 transfer/approve
         if (methodId === '0xa9059cbb' || methodId === '0x095ea7b3') {
             return 'token_transfer';
         }
-
         // NFT transfers
         const nftMethods = [
             '0x23b872dd', // transferFrom
             '0x42842e0e', // safeTransferFrom
             '0xb88d4fde', // safeTransferFrom with data
         ];
-
         if (nftMethods.includes(methodId)) {
             return 'nft_transfer';
         }
-
         // Bridge methods
         const bridgeMethods = [
             '0xa9f9e675', // depositETH
             '0xe9e05c42', // depositTransaction
         ];
-
         if (bridgeMethods.includes(methodId)) {
             return 'bridge';
         }
-
         return 'contract_call';
     }
-
     /** Apply filters to transactions */
-    protected applyFilters(txs: Transaction[], filters: FilterOptions): Transaction[] {
+    applyFilters(txs, filters) {
         return txs.filter(tx => {
             if (filters.timeRange) {
-                if (filters.timeRange.start && tx.timestamp < filters.timeRange.start) return false;
-                if (filters.timeRange.end && tx.timestamp > filters.timeRange.end) return false;
+                if (filters.timeRange.start && tx.timestamp < filters.timeRange.start)
+                    return false;
+                if (filters.timeRange.end && tx.timestamp > filters.timeRange.end)
+                    return false;
             }
-
-            if (filters.minValue !== undefined && tx.valueInEth < filters.minValue) return false;
-            if (filters.maxValue !== undefined && tx.valueInEth > filters.maxValue) return false;
-
-            if (filters.categories && !filters.categories.includes(tx.category)) return false;
-            if (filters.status && !filters.status.includes(tx.status)) return false;
-
+            if (filters.minValue !== undefined && tx.valueInEth < filters.minValue)
+                return false;
+            if (filters.maxValue !== undefined && tx.valueInEth > filters.maxValue)
+                return false;
+            if (filters.categories && !filters.categories.includes(tx.category))
+                return false;
+            if (filters.status && !filters.status.includes(tx.status))
+                return false;
             if (filters.addressFilter && filters.addressFilter.length > 0) {
                 const addresses = filters.addressFilter.map(a => a.toLowerCase());
                 if (!addresses.includes(tx.from) && (!tx.to || !addresses.includes(tx.to))) {
                     return false;
                 }
             }
-
             return true;
         });
     }
-
     /** Clear the response cache */
-    clearCache(): void {
+    clearCache() {
         this.cache.clear();
     }
-}
-
-// Raw types from explorer APIs
-interface RawTransaction {
-    hash: string;
-    blockNumber: string;
-    timeStamp: string;
-    from: string;
-    to: string;
-    value: string;
-    gasUsed: string;
-    gasPrice: string;
-    isError: string;
-    input: string;
-    methodId?: string;
-    functionName?: string;
-}
-
-interface RawInternalTransaction {
-    hash: string;
-    blockNumber: string;
-    timeStamp: string;
-    from: string;
-    to: string;
-    value: string;
-    isError: string;
-}
-
-interface RawTokenTransfer {
-    hash: string;
-    blockNumber: string;
-    timeStamp: string;
-    contractAddress: string;
-    from: string;
-    to: string;
-    value: string;
-    tokenName: string;
-    tokenSymbol: string;
-    tokenDecimal: string;
 }

@@ -10,6 +10,7 @@ import { analyzeCommand } from './commands/analyze.js';
 import { compareCommand } from './commands/compare.js';
 import { configCommand } from './commands/config.js';
 import { interactiveCommand } from './commands/interactive.js';
+import { getApiKeys } from './utils.js';
 
 // Gradient ASCII Art Banner
 const banner = `
@@ -23,12 +24,62 @@ ${chalk.hex('#00BFFF')('  ╚═╝     ')}${chalk.hex('#1E90FF')(' ╚═══
 
 const subtitle = chalk.dim('                              by DT • Blockchain Wallet Forensics Tool');
 
-const tips = `
-${chalk.white('Tips for getting started:')}
-${chalk.gray('1.')} Analyze a wallet: ${chalk.cyan('fundtracer analyze 0x...')}
-${chalk.gray('2.')} Compare wallets for Sybil detection: ${chalk.cyan('fundtracer compare 0x... 0x...')}
-${chalk.gray('3.')} ${chalk.cyan('/help')} for more information.
-`;
+/** Show provider status */
+function showProviderStatus(): void {
+    const keys = getApiKeys();
+
+    console.log(chalk.bold('  Provider Status:'));
+
+    // Core providers
+    const providers = [
+        { name: 'Alchemy', key: keys.alchemy, desc: 'Primary RPC' },
+        { name: 'Moralis', key: keys.moralis, desc: 'Fast Funding (10x)' },
+        { name: 'Dune', key: keys.dune, desc: 'Contract Analysis' },
+    ];
+
+    for (const p of providers) {
+        if (p.key) {
+            console.log(`  ${chalk.green('✓')} ${p.name.padEnd(10)} ${chalk.dim(p.desc)}`);
+        } else {
+            console.log(`  ${chalk.red('✗')} ${p.name.padEnd(10)} ${chalk.dim('Not configured')}`);
+        }
+    }
+    console.log();
+}
+
+/** Show tips based on configuration */
+function showTips(): void {
+    const keys = getApiKeys();
+    const hasAlchemy = !!keys.alchemy;
+    const hasMoralis = !!keys.moralis;
+    const hasDune = !!keys.dune;
+
+    console.log(chalk.bold('  Quick Start:'));
+
+    if (!hasAlchemy) {
+        console.log(chalk.yellow('  ⚠ No API keys configured! Run setup first:'));
+        console.log(chalk.cyan('    fundtracer config --set-key alchemy:YOUR_KEY'));
+        console.log();
+        console.log(chalk.dim('  Get a free Alchemy key: https://dashboard.alchemy.com/'));
+        return;
+    }
+
+    console.log(`  ${chalk.gray('1.')} Analyze a wallet: ${chalk.cyan('fundtracer analyze 0x...')}`);
+    console.log(`  ${chalk.gray('2.')} Compare wallets:  ${chalk.cyan('fundtracer compare 0x... 0x...')}`);
+    console.log(`  ${chalk.gray('3.')} View config:      ${chalk.cyan('fundtracer config --show')}`);
+
+    // Speed tips
+    if (!hasMoralis || !hasDune) {
+        console.log();
+        console.log(chalk.dim('  Speed Tips:'));
+        if (!hasMoralis) {
+            console.log(chalk.dim('  • Add Moralis for 10x faster funding tracing'));
+        }
+        if (!hasDune) {
+            console.log(chalk.dim('  • Add Dune for faster contract analysis'));
+        }
+    }
+}
 
 // Show banner when running without arguments or with interactive mode
 const args = process.argv.slice(2);
@@ -37,7 +88,10 @@ const isInteractive = args.length === 0 || args[0] === 'interactive' || args[0] 
 if (isInteractive && args.length === 0) {
     console.log(banner);
     console.log(subtitle);
-    console.log(tips);
+    console.log();
+    showProviderStatus();
+    showTips();
+    console.log();
 
     // Start interactive mode automatically
     interactiveCommand();
@@ -79,7 +133,7 @@ if (isInteractive && args.length === 0) {
     program
         .command('config')
         .description('Configure API keys and settings')
-        .option('--set-key <key>', 'Set Etherscan API key')
+        .option('--set-key <provider:key>', 'Set API key (alchemy, moralis, dune, etherscan...)')
         .option('--show', 'Show current configuration')
         .option('--reset', 'Reset configuration to defaults')
         .action(configCommand);
@@ -92,9 +146,13 @@ if (isInteractive && args.length === 0) {
         .action(() => {
             console.log(banner);
             console.log(subtitle);
-            console.log(tips);
+            console.log();
+            showProviderStatus();
+            showTips();
+            console.log();
             interactiveCommand();
         });
 
     program.parse();
 }
+

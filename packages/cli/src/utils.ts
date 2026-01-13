@@ -10,20 +10,30 @@ import { ApiKeyConfig, ChainId } from '@fundtracer/core';
 const CONFIG_FILE = path.join(os.homedir(), '.fundtracer', 'config.json');
 
 export function getApiKeys(): ApiKeyConfig {
+    let config: any = {};
+
     try {
         if (fs.existsSync(CONFIG_FILE)) {
             const data = fs.readFileSync(CONFIG_FILE, 'utf-8');
-            const config = JSON.parse(data);
-            return config.apiKeys || {};
+            config = JSON.parse(data);
         }
     } catch {
         // Ignore
     }
 
-    // Fallback to environment variables
+    const keys = config.apiKeys || {};
+
+    // Merge config file keys with environment variables (env takes precedence)
     return {
-        alchemy: process.env.ALCHEMY_API_KEY || 'your-alchemy-key',
-        moralis: process.env.MORALIS_API_KEY,
+        alchemy: process.env.ALCHEMY_API_KEY || keys.alchemy,
+        moralis: process.env.MORALIS_API_KEY || keys.moralis,
+        dune: process.env.DUNE_API_KEY || keys.dune,
+        etherscan: process.env.ETHERSCAN_API_KEY || keys.etherscan,
+        lineascan: process.env.LINEASCAN_API_KEY || keys.lineascan,
+        arbiscan: process.env.ARBISCAN_API_KEY || keys.arbiscan,
+        basescan: process.env.BASESCAN_API_KEY || keys.basescan,
+        optimism: process.env.OPTIMISM_API_KEY || keys.optimism,
+        polygonscan: process.env.POLYGONSCAN_API_KEY || keys.polygonscan,
     };
 }
 

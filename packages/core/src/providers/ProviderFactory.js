@@ -2,53 +2,28 @@
 // FundTracer by DT - Provider Factory
 // Alchemy-only provider (fast, reliable)
 // ============================================================
-
-import { ChainId } from '../types.js';
-import { ITransactionProvider } from './ITransactionProvider.js';
 import { AlchemyProvider } from './AlchemyProvider.js';
-
-export interface ApiKeyConfig {
-    // Primary RPC provider (recommended)
-    alchemy?: string;
-    // Optimized funding lookup
-    moralis?: string;
-    // Fast contract analysis via SQL
-    dune?: string;
-    // Per-chain explorer APIs (fallback)
-    etherscan?: string;     // Ethereum mainnet
-    lineascan?: string;     // Linea
-    arbiscan?: string;      // Arbitrum
-    basescan?: string;      // Base
-    optimism?: string;      // Optimism
-    polygonscan?: string;   // Polygon
-}
-
 /** Factory for creating chain-specific providers with auto-selection */
 export class ProviderFactory {
-    private apiKeys: ApiKeyConfig;
-    private providers: Map<ChainId, ITransactionProvider> = new Map();
-
-    constructor(apiKeys: ApiKeyConfig) {
+    apiKeys;
+    providers = new Map();
+    constructor(apiKeys) {
         this.apiKeys = apiKeys;
-
         // Validate at least one provider is configured
         const hasAnyKey = apiKeys.alchemy || apiKeys.etherscan || apiKeys.lineascan ||
             apiKeys.arbiscan || apiKeys.basescan;
         if (!hasAnyKey) {
-            throw new Error(
-                'No API keys configured. Please set at least one provider key.\n' +
+            throw new Error('No API keys configured. Please set at least one provider key.\n' +
                 'Run: fundtracer config --set-key alchemy:YOUR_KEY\n' +
-                'Or set ALCHEMY_API_KEY environment variable.'
-            );
+                'Or set ALCHEMY_API_KEY environment variable.');
         }
     }
-
     /** Get provider for a specific chain */
-    getProvider(chainId: ChainId): ITransactionProvider {
+    getProvider(chainId) {
         // Return cached provider if exists
         const cached = this.providers.get(chainId);
-        if (cached) return cached;
-
+        if (cached)
+            return cached;
         // Try Alchemy first (fastest, most reliable)
         if (this.apiKeys.alchemy) {
             console.log(`[ProviderFactory] Using Alchemy for ${chainId}`);
@@ -56,27 +31,20 @@ export class ProviderFactory {
             this.providers.set(chainId, provider);
             return provider;
         }
-
         // Fallback to chain-specific explorer API
         const explorerKey = this.getExplorerKeyForChain(chainId);
         if (explorerKey) {
             console.log(`[ProviderFactory] Using explorer API for ${chainId}`);
             // For now, create a limited AlchemyProvider - EtherscanProvider will be added
-            throw new Error(
-                `Etherscan provider not yet implemented. Please configure Alchemy.\n` +
-                `Run: fundtracer config --set-key alchemy:YOUR_KEY`
-            );
+            throw new Error(`Etherscan provider not yet implemented. Please configure Alchemy.\n` +
+                `Run: fundtracer config --set-key alchemy:YOUR_KEY`);
         }
-
-        throw new Error(
-            `No provider available for chain: ${chainId}\n` +
-            `Configure Alchemy (works for all chains): fundtracer config --set-key alchemy:YOUR_KEY`
-        );
+        throw new Error(`No provider available for chain: ${chainId}\n` +
+            `Configure Alchemy (works for all chains): fundtracer config --set-key alchemy:YOUR_KEY`);
     }
-
     /** Get explorer API key for a specific chain */
-    private getExplorerKeyForChain(chainId: ChainId): string | undefined {
-        const keyMap: Partial<Record<ChainId, string | undefined>> = {
+    getExplorerKeyForChain(chainId) {
+        const keyMap = {
             ethereum: this.apiKeys.etherscan,
             linea: this.apiKeys.lineascan,
             arbitrum: this.apiKeys.arbiscan,
@@ -86,9 +54,8 @@ export class ProviderFactory {
         };
         return keyMap[chainId];
     }
-
     /** Check which providers are available */
-    getAvailableProviders(): { name: string; available: boolean; recommended: boolean }[] {
+    getAvailableProviders() {
         return [
             { name: 'Alchemy', available: !!this.apiKeys.alchemy, recommended: true },
             { name: 'Moralis', available: !!this.apiKeys.moralis, recommended: true },
@@ -96,20 +63,17 @@ export class ProviderFactory {
             { name: 'Etherscan', available: !!this.apiKeys.etherscan, recommended: false },
         ];
     }
-
     /** Get Dune API key if available */
-    getDuneKey(): string | undefined {
+    getDuneKey() {
         return this.apiKeys.dune;
     }
-
     /** Update API keys */
-    setApiKeys(apiKeys: Partial<ApiKeyConfig>): void {
+    setApiKeys(apiKeys) {
         this.apiKeys = { ...this.apiKeys, ...apiKeys };
         this.providers.clear();
     }
-
     /** Clear all cached providers */
-    clearCache(): void {
+    clearCache() {
         this.providers.forEach(p => {
             if (p.clearCache) {
                 p.clearCache();
@@ -117,7 +81,4 @@ export class ProviderFactory {
         });
     }
 }
-
 export { AlchemyProvider };
-
-

@@ -78,6 +78,8 @@ export interface WalletInfo {
     lastTxTimestamp?: number;
     isContract: boolean;
     label?: string;
+    isInfrastructure?: boolean;
+    infrastructureType?: string; // 'bridge', 'exchange', 'mixer'
 }
 
 /** Funding tree node */
@@ -93,6 +95,7 @@ export interface FundingNode {
     children: FundingNode[];
     suspiciousScore: number;
     suspiciousReasons: string[];
+    isInfrastructure?: boolean;
 }
 
 /** Funding tree configuration */

@@ -3,6 +3,7 @@
 // ============================================================
 
 import { ITransactionProvider } from '../providers/ITransactionProvider.js';
+import { getAddressInfo } from '../data/KnownAddresses.js';
 import {
     FundingNode,
     FundingTreeConfig,
@@ -75,6 +76,16 @@ export class FundingTreeBuilder {
         }
 
         this.visitedAddresses.add(normalizedAddr);
+
+        // Check for infrastructure address (Bridge, Exchange, etc)
+        // If identified, we stop tracing deeper as these are terminal nodes for Sybil analysis
+        const infraInfo = getAddressInfo(normalizedAddr, this.provider.chainId);
+        if (infraInfo) {
+            node.isInfrastructure = true;
+            node.label = infraInfo.name;
+            // Stop recursion for infrastructure
+            return node;
+        }
 
         // Report progress
         if (this.onProgress) {

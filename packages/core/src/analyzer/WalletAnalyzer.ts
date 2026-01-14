@@ -20,6 +20,7 @@ import {
     SuspiciousIndicator,
 } from '../types.js';
 import { ProviderFactory, ApiKeyConfig } from '../providers/ProviderFactory.js';
+import { getAddressInfo } from '../data/KnownAddresses.js';
 
 // Known contract addresses for project identification
 const KNOWN_PROJECTS: Record<string, { name: string; category: ProjectInteraction['category'] }> = {
@@ -62,6 +63,19 @@ export class WalletAnalyzer {
         // Get wallet info
         const walletInfo = await provider.getWalletInfo(normalizedAddr);
 
+        // Detect if this wallet itself is infrastructure
+        const knownInfo = getAddressInfo(normalizedAddr, chainId);
+        if (knownInfo) {
+            walletInfo.isInfrastructure = true;
+            walletInfo.infrastructureType = knownInfo.type;
+            walletInfo.label = knownInfo.name;
+        } else if (walletInfo.txCount > 50000) {
+            // Heuristic: Very high transaction count = likely infrastructure/bot
+            walletInfo.isInfrastructure = true;
+            walletInfo.infrastructureType = 'high_volume';
+            walletInfo.label = 'High Activity (Possible Infrastructure)';
+        }
+
         // Progress update
         this.reportProgress('Fetching transactions', 2, 6, 'Retrieving transaction history...');
 
@@ -99,6 +113,7 @@ export class WalletAnalyzer {
             fundingSources,
             fundingDestinations,
             walletAge,
+            isInfrastructure: walletInfo.isInfrastructure,
         });
 
         const overallRiskScore = detector.calculateRiskScore(suspiciousIndicators);

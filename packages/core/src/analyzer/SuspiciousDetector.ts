@@ -17,6 +17,7 @@ interface DetectionContext {
     fundingSources: FundingNode;
     fundingDestinations: FundingNode;
     walletAge?: number; // in days
+    isInfrastructure?: boolean;
 }
 
 export class SuspiciousDetector {
@@ -26,12 +27,17 @@ export class SuspiciousDetector {
     detect(context: DetectionContext): SuspiciousIndicator[] {
         this.indicators = [];
 
-        this.detectRapidMovement(context.transactions);
-        this.detectSameBlockActivity(context.transactions);
+        // If infrastructure, skip organic behavior checks
+        if (!context.isInfrastructure) {
+            this.detectRapidMovement(context.transactions);
+            this.detectSameBlockActivity(context.transactions);
+            this.detectSybilPatterns(context.fundingSources, context.fundingDestinations);
+        }
+
+        // Run universally applicable checks
         this.detectCircularFlow(context.transactions);
         this.detectDustAttacks(context.transactions);
         this.detectFreshWallet(context.walletAge, context.transactions);
-        this.detectSybilPatterns(context.fundingSources, context.fundingDestinations);
         this.detectWashTrading(context.transactions);
 
         return this.indicators;

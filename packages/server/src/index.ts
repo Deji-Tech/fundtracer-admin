@@ -7,6 +7,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import path from 'path'; // Added import
 import { initializeFirebase } from './firebase.js';
 import { authMiddleware } from './middleware/auth.js';
 import { usageMiddleware } from './middleware/usage.js';
@@ -27,6 +28,24 @@ app.use((req, res, next) => {
     console.log(`[DEBUG] Request: ${req.method} ${req.url}`);
     console.log(`[DEBUG] Path: ${req.path}`);
     next();
+});
+
+// Serve Static Frontend
+// In Pxxl App (and standard monorepo builds), we run from the project root
+// So paths should be relative to process.cwd()
+// Frontend build output: packages/web/dist
+const webDistPath = path.join(process.cwd(), 'packages/web/dist');
+
+console.log('[DEBUG] Serving static files from:', webDistPath);
+
+app.use(express.static(webDistPath));
+
+// Fallback for SPA routing
+app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(webDistPath, 'index.html'));
 });
 
 app.use(cors({

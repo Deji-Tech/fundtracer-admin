@@ -64,7 +64,14 @@ async function apiRequest<T>(
         body: body ? JSON.stringify(body) : undefined,
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (e) {
+        console.error('API Parse Error:', text);
+        throw new Error(`Server returned invalid response (Status ${response.status}): ${text.slice(0, 50)}...`);
+    }
 
     if (!response.ok) {
         if (response.status === 401) {

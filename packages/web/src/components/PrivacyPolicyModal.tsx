@@ -16,7 +16,7 @@ const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose
                     <h2>Privacy Policy</h2>
                     <button className="btn btn-ghost btn-icon" onClick={onClose}>
                         <X size={20} />
-                    </button> //
+                    </button>
                 </div>
 
                 <div className="modal-body" style={{ lineHeight: '1.6', color: 'var(--color-text-secondary)' }}>

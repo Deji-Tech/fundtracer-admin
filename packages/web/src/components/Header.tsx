@@ -1,12 +1,13 @@
 import React from 'react';
-import { Settings, Github, Mail } from 'lucide-react';
+import { Settings, Github, Mail, Zap } from 'lucide-react';
 import logo from '../assets/logo.png';
 
 interface HeaderProps {
     onSettingsClick?: () => void;
+    onUpgradeClick?: () => void;
 }
 
-function Header({ onSettingsClick }: HeaderProps) {
+function Header({ onSettingsClick, onUpgradeClick }: HeaderProps) {
     return (
         <header className="header">
             <div className="header-inner">
@@ -22,6 +23,15 @@ function Header({ onSettingsClick }: HeaderProps) {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    {onUpgradeClick && (
+                        <button
+                            className="upgrade-btn"
+                            onClick={onUpgradeClick}
+                            title="Upgrade to Premium"
+                        >
+                            <Zap size={14} /> Upgrade
+                        </button>
+                    )}
                     <a
                         href="https://github.com/Deji-Tech"
                         target="_blank"
@@ -55,3 +65,4 @@ function Header({ onSettingsClick }: HeaderProps) {
 }
 
 export default Header;
+

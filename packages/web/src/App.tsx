@@ -14,6 +14,7 @@ import ContractAnalysisView, { ContractAnalysisResult } from './components/Contr
 import ComingSoonModal from './components/ComingSoonModal';
 import SybilDetector from './components/SybilDetector';
 import PrivacyPolicyModal from './components/PrivacyPolicyModal';
+import OnboardingModal from './components/OnboardingModal';
 
 type ViewMode = 'wallet' | 'contract' | 'compare' | 'sybil';
 
@@ -27,6 +28,8 @@ function App() {
     const [showComingSoon, setShowComingSoon] = useState(false);
     const [showHowToUse, setShowHowToUse] = useState(false);
     const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+    const [showOnboarding, setShowOnboarding] = useState(false);
+    const [showPricing, setShowPricing] = useState(false);
 
     // Analysis state
     const [loading, setLoading] = useState(false);
@@ -34,6 +37,13 @@ function App() {
     const [walletResult, setWalletResult] = useState<AnalysisResult | null>(null);
     const [multiWalletResult, setMultiWalletResult] = useState<MultiWalletResult | null>(null);
     const [contractResult, setContractResult] = useState<ContractAnalysisResult | null>(null);
+
+    // Show onboarding for first-time users after login
+    React.useEffect(() => {
+        if (user && !localStorage.getItem('fundtracer_onboarding_complete')) {
+            setShowOnboarding(true);
+        }
+    }, [user]);
 
     const handleChainSelect = (chainId: ChainId) => {
         const chain = CHAINS[chainId];
@@ -209,10 +219,13 @@ function App() {
 
     return (
         <div className="app-container">
-            <Header onSettingsClick={() => {
-                setShowApiKeyForm(true);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }} />
+            <Header
+                onSettingsClick={() => {
+                    setShowApiKeyForm(true);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onUpgradeClick={() => setShowPricing(true)}
+            />
 
             <main className="main-content">
                 {/* Auth Panel - Shows sign in or user info */}
@@ -293,15 +306,6 @@ function App() {
                                                 Sybil
                                             </button>
                                         </div>
-
-                                        {/* Usage indicator */}
-                                        {profile && (
-                                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-                                                {profile.usage.remaining === 'unlimited'
-                                                    ? 'Unlimited'
-                                                    : `${profile.usage.remaining} remaining today`}
-                                            </div>
-                                        )}
                                     </div>
 
                                     {/* Chain Selector */}
@@ -444,6 +448,10 @@ function App() {
                 <ComingSoonModal onClose={() => setShowComingSoon(false)} />
             )}
             <PrivacyPolicyModal isOpen={showPrivacyPolicy} onClose={() => setShowPrivacyPolicy(false)} />
+            <OnboardingModal isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
+            {showPricing && (
+                <OnboardingModal isOpen={true} onClose={() => setShowPricing(false)} />
+            )}
         </div>
     );
 }

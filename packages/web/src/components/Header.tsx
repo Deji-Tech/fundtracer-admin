@@ -1,5 +1,6 @@
 import React from 'react';
 import { Settings, Github, Mail } from 'lucide-react';
+import logo from '../assets/logo.png';
 
 interface HeaderProps {
     onSettingsClick?: () => void;
@@ -11,9 +12,9 @@ function Header({ onSettingsClick }: HeaderProps) {
             <div className="header-inner">
                 <div className="logo">
                     <img
-                        src="/logo.png"
+                        src={logo}
                         alt="FundTracer"
-                        style={{ width: '32px', height: '32px', objectFit: 'contain', borderRadius: '4px' }}
+                        style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '8px' }}
                     />
                     <span className="logo-text">FundTracer</span>
                     <span className="logo-subtext">by DT</span>

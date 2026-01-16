@@ -109,7 +109,9 @@ export async function getIdToken(): Promise<string | null> {
 // Subscribe to auth state changes
 export function onAuthChange(callback: (user: User | null) => void): () => void {
     if (!auth) {
-        console.warn('Firebase auth not available');
+        console.warn('Firebase auth not available - calling callback with null immediately');
+        // Call callback immediately with null so loading state resolves
+        setTimeout(() => callback(null), 0);
         return () => { };
     }
     return onAuthStateChanged(auth, callback);

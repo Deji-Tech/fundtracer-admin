@@ -7,13 +7,14 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import path from 'path'; // Added import
+import path from 'path';
 import { initializeFirebase } from './firebase.js';
 import { authMiddleware } from './middleware/auth.js';
 import { usageMiddleware } from './middleware/usage.js';
 import { analyzeRoutes } from './routes/analyze.js';
 import { userRoutes } from './routes/user.js';
 import { duneRoutes } from './routes/dune.js';
+import { PaymentListener } from './services/PaymentListener.js';
 
 dotenv.config();
 
@@ -31,11 +32,11 @@ app.use((req, res, next) => {
 });
 
 // Serve Static Frontend
-// In Pxxl App (and standard monorepo builds), we run from the project root
-// So paths should be relative to process.cwd()
-// Frontend build output: packages/web/dist
-const webDistPath = path.join(process.cwd(), 'packages/web/dist');
+// In Pxxl App, npm start --workspace sets CWD to packages/server
+// Frontend build output is in sibling directory: ../web/dist
+const webDistPath = path.join(process.cwd(), '../web/dist');
 
+console.log('[DEBUG] CWD:', process.cwd());
 console.log('[DEBUG] Serving static files from:', webDistPath);
 
 app.use(express.static(webDistPath));
@@ -63,7 +64,6 @@ app.use(express.json({ limit: '10mb' })); // Increased for large wallet lists
 initializeFirebase();
 
 // Start Payment Listener
-import { PaymentListener } from './services/PaymentListener.js';
 new PaymentListener().start();
 
 console.log('[DEBUG] Default API Key Present:', !!process.env.DEFAULT_ETHERSCAN_API_KEY);

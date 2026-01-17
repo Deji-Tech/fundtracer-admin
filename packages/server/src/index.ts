@@ -8,6 +8,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { initializeFirebase } from './firebase.js';
 import { authMiddleware } from './middleware/auth.js';
 import { usageMiddleware } from './middleware/usage.js';
@@ -32,40 +33,25 @@ app.use((req, res, next) => {
 });
 
 // Serve Static Frontend
-// In Pxxl App, npm start --workspace sets CWD to packages/server
-// Frontend build output is in sibling directory: ../web/dist
-const webDistPath = path.join(process.cwd(), '../web/dist');
+// Try multiple possible paths (Pxxl runs from different locations)
+let webDistPath: string;
+const possiblePaths = [
+    path.join(process.cwd(), '../web/dist'),           // When CWD is /app/packages/server
+    path.join(process.cwd(), 'packages/web/dist'),     // When CWD is /app (root)
+    path.join(process.cwd(), '../../packages/web/dist') // When CWD is /app/packages/server/dist
+];
+
+webDistPath = possiblePaths.find(p => {
+    try {
+        return fs.existsSync(path.join(p, 'index.html'));
+    } catch {
+        return false;
+    }
+}) || possiblePaths[0]; // Default to first if none found
 
 console.log('[DEBUG] CWD:', process.cwd());
 console.log('[DEBUG] Serving static files from:', webDistPath);
-
-// Debug: List files to verify path
-import fs from 'fs';
-try {
-    console.log('[DEBUG] Listing web directory contents:');
-    const webDir = path.join(process.cwd(), '../web');
-    if (fs.existsSync(webDir)) {
-        console.log('web dir contents:', fs.readdirSync(webDir));
-        const distDir = path.join(webDir, 'dist');
-        if (fs.existsSync(distDir)) {
-            console.log('web/dist contents:', fs.readdirSync(distDir));
-
-            // Check index.html specifically
-            const indexPath = path.join(distDir, 'index.html');
-            if (fs.existsSync(indexPath)) {
-                console.log('index.html size:', fs.statSync(indexPath).size);
-            } else {
-                console.error('CRITICAL: index.html missing in dist!');
-            }
-        } else {
-            console.error('CRITICAL: web/dist directory missing!');
-        }
-    } else {
-        console.error('CRITICAL: web directory missing!');
-    }
-} catch (e) {
-    console.error('[DEBUG] Error listing files:', e);
-}
+console.log('[DEBUG] index.html exists:', fs.existsSync(path.join(webDistPath, 'index.html')));
 
 app.use(express.static(webDistPath));
 

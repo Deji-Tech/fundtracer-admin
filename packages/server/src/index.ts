@@ -48,7 +48,8 @@ app.use(cors({
         'http://localhost:5173',
         'http://localhost:3000',
         /^https:\/\/.*\.netlify\.app$/,
-        /^https:\/\/.*\.firebaseapp\.com$/
+        /^https:\/\/.*\.firebaseapp\.com$/,
+        /^https:\/\/.*\.pxxl\.click$/
     ],
     credentials: true,
 }));
@@ -90,7 +91,14 @@ app.get('*', (req, res) => {
     if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: 'API endpoint not found' });
     }
-    res.sendFile(path.join(webDistPath, 'index.html'));
+    const indexPath = path.join(webDistPath, 'index.html');
+    console.log('[DEBUG] Serving SPA fallback:', indexPath);
+    res.sendFile(indexPath, (err) => {
+        if (err) {
+            console.error('[DEBUG] Failed to serve index.html:', err);
+            res.status(500).send('Failed to load application. Check server logs.');
+        }
+    });
 });
 
 // Error handler

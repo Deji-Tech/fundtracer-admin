@@ -1,38 +1,31 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import cors from 'cors';
+// Standalone Vercel API handler - no server dependencies
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Lightweight API handler - delegates to actual Express routes
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    // Enable CORS
-    await new Promise<void>((resolve) => {
-        cors({
-            origin: true,
-            credentials: true
-        })(req as any, res as any, resolve as any);
+export default function handler(req: VercelRequest, res: VercelResponse) {
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    const path = req.url || '/';
+
+    // Health check
+    if (path === '/api/health' || path === '/api') {
+        return res.status(200).json({
+            status: 'ok',
+            message: 'FundTracer API is running on Vercel',
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    // For now, return a message that the API is being set up
+    return res.status(200).json({
+        message: 'FundTracer API',
+        path: path,
+        note: 'Full API coming soon. Frontend should work!'
     });
-
-    const path = req.url?.replace('/api', '') || '/';
-
-    // Route to appropriate handler
-    if (path.startsWith('/auth')) {
-        const { authRoutes } = await import('../../packages/server/src/routes/auth');
-        return authRoutes(req as any, res as any);
-    }
-
-    if (path.startsWith('/analyze')) {
-        const { analyzeRoutes } = await import('../../packages/server/src/routes/analyze');
-        return analyzeRoutes(req as any, res as any);
-    }
-
-    if (path.startsWith('/user')) {
-        const { userRoutes } = await import('../../packages/server/src/routes/user');
-        return userRoutes(req as any, res as any);
-    }
-
-    if (path.startsWith('/dune')) {
-        const { duneRoutes } = await import('../../packages/server/src/routes/dune');
-        return duneRoutes(req as any, res as any);
-    }
-
-    res.status(404).json({ error: 'API endpoint not found' });
 }

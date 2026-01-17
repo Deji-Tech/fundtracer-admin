@@ -1,8 +1,9 @@
 {
     "version": 2,
-    "buildCommand": "npm install && npm run build --workspace=@fundtracer/web",
+    "buildCommand": "cd packages/web && npm install && npm run build",
     "outputDirectory": "packages/web/dist",
-    "installCommand": "npm install",
+    "installCommand": "npm install --legacy-peer-deps",
+    "framework": null,
     "rewrites": [
         {
             "source": "/api/:path*",
@@ -12,14 +13,5 @@
             "source": "/(.*)",
             "destination": "/index.html"
         }
-    ],
-    "functions": {
-        "api/*.ts": {
-            "memory": 1024,
-            "maxDuration": 10
-        }
-    },
-    "env": {
-        "NODE_ENV": "production"
-    }
+    ]
 }

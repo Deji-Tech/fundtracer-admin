@@ -3,18 +3,26 @@
     "buildCommand": "npm run build",
     "outputDirectory": "packages/web/dist",
     "installCommand": "npm install",
-    "framework": null,
     "rewrites": [
         {
             "source": "/api/:path*",
-            "destination": "/api/index"
+            "destination": "/api"
         },
         {
-            "source": "/((?!api/).*)",
+            "source": "/(.*)",
             "destination": "/index.html"
         }
     ],
-    "env": {
-        "NODE_ENV": "production"
+    "routes": [
+        {
+            "src": "/api/(.*)",
+            "dest": "/api"
+        }
+    ],
+    "functions": {
+        "api/index.ts": {
+            "memory": 3008,
+            "maxDuration": 30
+        }
     }
 }

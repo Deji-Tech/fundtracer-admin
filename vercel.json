@@ -1,6 +1,6 @@
 {
     "version": 2,
-    "buildCommand": "cd packages/web && npm install && npx vite build",
+    "buildCommand": "npm run build --workspace=@fundtracer/web",
     "outputDirectory": "packages/web/dist",
     "installCommand": "npm install",
     "framework": null,

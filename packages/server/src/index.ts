@@ -73,7 +73,12 @@ app.use(express.json({ limit: '10mb' })); // Increased for large wallet lists
 initializeFirebase();
 
 // Start Payment Listener
-new PaymentListener().start();
+// Start Payment Listener - robustly
+try {
+    new PaymentListener().start();
+} catch (err) {
+    console.warn('[WARN] Failed to start PaymentListener (acceptable in serverless):', err);
+}
 
 console.log('[DEBUG] Default Alchemy API Key Present:', !!process.env.DEFAULT_ALCHEMY_API_KEY);
 console.log('[DEBUG] Default Alchemy API Key Length:', process.env.DEFAULT_ALCHEMY_API_KEY?.length);

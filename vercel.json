@@ -1,8 +1,8 @@
 {
     "version": 2,
-    "buildCommand": "npm run build --workspace=@fundtracer/web",
+    "buildCommand": "cd packages/web && npm install && npx vite build",
     "outputDirectory": "packages/web/dist",
-    "installCommand": "npm install --include=dev",
+    "installCommand": "npm install",
     "framework": null,
     "rewrites": [
         {

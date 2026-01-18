@@ -24,31 +24,29 @@ const terminalLogs: LogLine[] = [
 function TerminalAnimation() {
     const [visibleLines, setVisibleLines] = useState<LogLine[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [isComplete, setIsComplete] = useState(false);
 
     useEffect(() => {
-        if (currentIndex < terminalLogs.length) {
+        if (currentIndex < terminalLogs.length && !isComplete) {
+            // 30% slower: base 520ms + random 0-390ms (was 400ms + 0-300ms)
             const timer = setTimeout(() => {
                 setVisibleLines(prev => [...prev, terminalLogs[currentIndex]]);
                 setCurrentIndex(prev => prev + 1);
-            }, 400 + Math.random() * 300);
+            }, 520 + Math.random() * 390);
             return () => clearTimeout(timer);
-        } else {
-            // Reset after a pause
-            const resetTimer = setTimeout(() => {
-                setVisibleLines([]);
-                setCurrentIndex(0);
-            }, 3000);
-            return () => clearTimeout(resetTimer);
+        } else if (currentIndex >= terminalLogs.length && !isComplete) {
+            // Mark as complete - no repeat
+            setIsComplete(true);
         }
-    }, [currentIndex]);
+    }, [currentIndex, isComplete]);
 
     const getStatusColor = (status?: string) => {
         switch (status) {
-            case 'success': return '#10B981';
-            case 'warning': return '#F59E0B';
-            case 'info': return '#6B7280';
-            case 'loading': return '#3B82F6';
-            default: return '#9CA3AF';
+            case 'success': return '#A0A0A0'; // Light grey for success
+            case 'warning': return '#888888';
+            case 'info': return '#666666'; // Dark grey
+            case 'loading': return '#909090';
+            default: return '#707070';
         }
     };
 
@@ -64,82 +62,90 @@ function TerminalAnimation() {
 
     return (
         <div style={{
-            background: 'linear-gradient(145deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)',
+            // Glossy black/grey gradient
+            background: 'linear-gradient(165deg, #2a2a2a 0%, #1a1a1a 30%, #0d0d0d 70%, #1a1a1a 100%)',
             borderRadius: '12px',
             padding: '0',
             overflow: 'hidden',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.05)',
+            // Glossy effect with subtle border glow
+            boxShadow: `
+                0 25px 50px -12px rgba(0, 0, 0, 0.7),
+                0 0 0 1px rgba(255,255,255,0.08),
+                inset 0 1px 0 rgba(255,255,255,0.1)
+            `,
             width: '100%',
-            maxWidth: '500px',
+            maxWidth: '650px', // Wider
             margin: '0 auto',
         }}>
-            {/* Terminal Header */}
+            {/* Terminal Header - Glossy ash */}
             <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                padding: '12px 16px',
-                background: 'rgba(255,255,255,0.03)',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                padding: '14px 18px',
+                background: 'linear-gradient(180deg, rgba(70,70,70,0.4) 0%, rgba(40,40,40,0.3) 100%)',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
             }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#FF5F56' }} />
-                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#FFBD2E' }} />
-                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#27C93F' }} />
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#FF5F56', boxShadow: '0 0 4px rgba(255,95,86,0.4)' }} />
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#FFBD2E', boxShadow: '0 0 4px rgba(255,189,46,0.4)' }} />
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#27C93F', boxShadow: '0 0 4px rgba(39,201,63,0.4)' }} />
                 </div>
                 <div style={{
                     flex: 1,
                     textAlign: 'center',
                     fontSize: '12px',
-                    color: 'rgba(255,255,255,0.5)',
+                    color: 'rgba(160,160,160,0.7)',
                     fontFamily: 'ui-monospace, monospace',
+                    letterSpacing: '0.5px',
                 }}>
                     fundtracer — analysis
                 </div>
             </div>
 
-            {/* Terminal Content */}
+            {/* Terminal Content - Darker with grey text */}
             <div style={{
-                padding: '16px',
+                padding: '20px 24px',
                 fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                fontSize: '12px',
-                lineHeight: '1.8',
-                minHeight: '200px',
-                maxHeight: '260px',
+                fontSize: '13px',
+                lineHeight: '2',
+                minHeight: '220px',
+                maxHeight: '280px',
                 overflowY: 'auto',
+                background: 'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, transparent 100%)',
             }}>
                 {visibleLines.map((line, index) => (
                     <div
                         key={index}
                         style={{
                             display: 'flex',
-                            gap: '12px',
+                            gap: '16px',
                             opacity: 0,
-                            animation: 'terminalFadeIn 0.3s ease forwards',
+                            animation: 'terminalFadeIn 0.4s ease forwards', // 30% slower (was 0.3s)
                         }}
                     >
-                        <span style={{ color: 'rgba(255,255,255,0.3)', minWidth: '85px' }}>
+                        <span style={{ color: 'rgba(120,120,120,0.6)', minWidth: '95px' }}>
                             {line.time}
                         </span>
-                        <span style={{ color: getStatusColor(line.status), minWidth: '12px' }}>
+                        <span style={{ color: getStatusColor(line.status), minWidth: '14px' }}>
                             {getStatusPrefix(line.status)}
                         </span>
-                        <span style={{ color: 'rgba(255,255,255,0.85)' }}>
+                        <span style={{ color: 'rgba(200,200,200,0.9)' }}>
                             {line.message}
                         </span>
                     </div>
                 ))}
-                {currentIndex < terminalLogs.length && (
+                {!isComplete && currentIndex < terminalLogs.length && (
                     <div style={{
                         display: 'flex',
-                        gap: '12px',
+                        gap: '16px',
                         marginTop: '4px',
                     }}>
-                        <span style={{ color: 'rgba(255,255,255,0.3)', minWidth: '85px' }}>
+                        <span style={{ color: 'rgba(120,120,120,0.6)', minWidth: '95px' }}>
                             --:--:--.---
                         </span>
                         <span style={{
-                            color: '#3B82F6',
-                            animation: 'terminalBlink 1s infinite',
+                            color: '#888888',
+                            animation: 'terminalBlink 1.3s infinite', // 30% slower (was 1s)
                         }}>
                             ▋
                         </span>

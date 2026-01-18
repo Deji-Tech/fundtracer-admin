@@ -247,16 +247,37 @@ router.post('/wallet', async (req: AuthenticatedRequest, res: Response) => {
             lineascan: process.env.LINEASCAN_API_KEY || process.env.DEFAULT_ETHERSCAN_API_KEY,
         });
 
-        console.log('[DEBUG] Starting wallet analysis with 120s timeout...');
+        // Pagination params
+        const limit = Math.min(options?.limit || 100, 500); // Max 500 per request
+        const offset = options?.offset || 0;
+
+        console.log(`[DEBUG] Starting wallet analysis (limit=${limit}, offset=${offset}) with 60s timeout...`);
         const result = await withTimeout(
             analyzer.analyze(address, chain as ChainId, options),
-            360000,
+            60000, // Reduced to 60s to avoid 504
             'Wallet analysis'
         );
 
+        // Paginate transactions
+        const totalTransactions = result.transactions.length;
+        const paginatedTransactions = result.transactions.slice(offset, offset + limit);
+        const hasMore = offset + limit < totalTransactions;
+
         res.json({
             success: true,
-            result: enrichAnalysisResult(result),
+            result: {
+                ...enrichAnalysisResult({
+                    ...result,
+                    transactions: paginatedTransactions,
+                }),
+                pagination: {
+                    offset,
+                    limit,
+                    total: totalTransactions,
+                    hasMore,
+                    returned: paginatedTransactions.length,
+                },
+            },
             usageRemaining: res.locals.usageRemaining,
         });
     } catch (error: any) {

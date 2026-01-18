@@ -113,9 +113,27 @@ export async function removeAlchemyKey(): Promise<{ success: boolean; message: s
 export async function analyzeWallet(
     address: string,
     chain: ChainId,
-    options?: any
-): Promise<ApiResponse<AnalysisResult>> {
+    options?: { limit?: number; offset?: number;[key: string]: any }
+): Promise<ApiResponse<AnalysisResult & { pagination?: { total: number; offset: number; limit: number; hasMore: boolean } }>> {
     return apiRequest('/api/analyze/wallet', 'POST', { address, chain, options });
+}
+
+// Load more transactions (for infinite scroll)
+export async function loadMoreTransactions(
+    address: string,
+    chain: ChainId,
+    offset: number,
+    limit: number = 100
+): Promise<{ transactions: any[]; pagination: { total: number; offset: number; limit: number; hasMore: boolean } }> {
+    const response = await apiRequest<any>('/api/analyze/wallet', 'POST', {
+        address,
+        chain,
+        options: { offset, limit }
+    });
+    return {
+        transactions: response.result?.transactions || [],
+        pagination: response.result?.pagination || { total: 0, offset, limit, hasMore: false }
+    };
 }
 
 export async function compareWallets(

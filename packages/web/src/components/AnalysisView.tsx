@@ -5,11 +5,14 @@ import TransactionList from './TransactionList';
 
 interface AnalysisViewProps {
     result: AnalysisResult;
+    pagination?: { total: number; offset: number; limit: number; hasMore: boolean } | null;
+    loadingMore?: boolean;
+    onLoadMore?: () => void;
 }
 
 type TabId = 'overview' | 'funding' | 'transactions' | 'suspicious';
 
-function AnalysisView({ result }: AnalysisViewProps) {
+function AnalysisView({ result, pagination, loadingMore, onLoadMore }: AnalysisViewProps) {
     const [activeTab, setActiveTab] = useState<TabId>('overview');
 
     const formatAddress = (addr: string) =>
@@ -145,7 +148,13 @@ function AnalysisView({ result }: AnalysisViewProps) {
                     )}
 
                     {activeTab === 'transactions' && (
-                        <TransactionList transactions={result.transactions} chain={result.wallet.chain} />
+                        <TransactionList
+                            transactions={result.transactions}
+                            chain={result.wallet.chain}
+                            pagination={pagination}
+                            loadingMore={loadingMore}
+                            onLoadMore={onLoadMore}
+                        />
                     )}
 
                     {activeTab === 'suspicious' && (

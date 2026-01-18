@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { FundingNode, CHAINS, ChainId } from '@fundtracer/core';
 import * as d3 from 'd3';
+import { useIsMobile } from '../hooks/useIsMobile';
 import {
     Search,
     Maximize2,
@@ -55,6 +56,116 @@ function FundingTree({ node, direction, chain = 'ethereum', title }: FundingTree
     const [hoveredNode, setHoveredNode] = useState<FundingNode | null>(null);
 
     const chainConfig = CHAINS[chain];
+    const isMobile = useIsMobile();
+
+    // Mobile: Simplified list-based tree view
+    const MobileTreeNode = ({ treeNode, depth = 0 }: { treeNode: FundingNode; depth?: number }) => {
+        const [expanded, setExpanded] = useState(depth < 1); // Auto-expand first level
+        const hasChildren = treeNode.children.length > 0;
+        const formatAddr = (a: string) => `${a.slice(0, 6)}...${a.slice(-4)}`;
+        const formatVal = (v: number) => v < 0.0001 ? '<0.0001' : v.toFixed(4);
+
+        return (
+            <div style={{ marginLeft: depth * 12 }}>
+                <div
+                    onClick={() => hasChildren && setExpanded(!expanded)}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '10px 12px',
+                        marginBottom: 4,
+                        background: depth === 0 ? 'rgba(74, 222, 128, 0.1)' : 'rgba(40, 40, 40, 0.6)',
+                        borderRadius: 8,
+                        borderLeft: `3px solid ${direction === 'source' ? '#4ade80' : '#f87171'}`,
+                        cursor: hasChildren ? 'pointer' : 'default',
+                        gap: 8,
+                    }}
+                >
+                    {hasChildren && (
+                        <span style={{ color: '#888', fontSize: 12 }}>
+                            {expanded ? '▼' : '▶'}
+                        </span>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            color: '#fff',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                        }}>
+                            {treeNode.label || formatAddr(treeNode.address)}
+                        </div>
+                        <div style={{ fontSize: 10, color: '#888' }}>
+                            {formatVal(treeNode.totalValue)} {chainConfig.nativeCurrency}
+                            {hasChildren && ` • ${treeNode.children.length} connection${treeNode.children.length > 1 ? 's' : ''}`}
+                        </div>
+                    </div>
+                    <a
+                        href={`${chainConfig.explorerUrl}/address/${treeNode.address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            fontSize: 10,
+                            color: '#666',
+                            padding: '4px 8px',
+                            background: 'rgba(255,255,255,0.05)',
+                            borderRadius: 4,
+                        }}
+                    >
+                        View ↗
+                    </a>
+                </div>
+                {expanded && hasChildren && (
+                    <div>
+                        {treeNode.children.slice(0, 10).map((child, idx) => (
+                            <MobileTreeNode key={`${child.address}-${idx}`} treeNode={child} depth={depth + 1} />
+                        ))}
+                        {treeNode.children.length > 10 && (
+                            <div style={{
+                                marginLeft: (depth + 1) * 12,
+                                padding: '8px 12px',
+                                fontSize: 11,
+                                color: '#666',
+                                fontStyle: 'italic',
+                            }}>
+                                +{treeNode.children.length - 10} more...
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // Mobile view: simplified list
+    if (isMobile) {
+        return (
+            <div style={{
+                background: 'rgba(15, 15, 15, 0.95)',
+                borderRadius: 12,
+                padding: 12,
+                maxHeight: 400,
+                overflowY: 'auto',
+            }}>
+                <div style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: direction === 'source' ? '#4ade80' : '#f87171',
+                    marginBottom: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                }}>
+                    {direction === 'source' ? '📥' : '📤'} {title || (direction === 'source' ? 'Funding Sources' : 'Fund Destinations')}
+                </div>
+                <MobileTreeNode treeNode={node} />
+            </div>
+        );
+    }
+
+    // Desktop: Full D3 visualization (existing code below)
 
     // Flatten tree for searching
     const flattenTree = useCallback((n: FundingNode, depth = 0): FundingNode[] => {

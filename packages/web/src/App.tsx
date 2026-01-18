@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChainId, AnalysisResult, MultiWalletResult, getEnabledChains, CHAINS } from '@fundtracer/core';
 import { useAuth } from './contexts/AuthContext';
-import { analyzeWallet, compareWallets, analyzeContract } from './api';
+import { analyzeWallet, compareWallets, analyzeContract, loadMoreTransactions } from './api';
 import Header from './components/Header';
 import AuthPanel from './components/AuthPanel';
 import HowToUse from './components/HowToUse';
@@ -37,10 +37,13 @@ function App() {
 
     // Analysis state
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [walletResult, setWalletResult] = useState<AnalysisResult | null>(null);
     const [multiWalletResult, setMultiWalletResult] = useState<MultiWalletResult | null>(null);
     const [contractResult, setContractResult] = useState<ContractAnalysisResult | null>(null);
+    const [pagination, setPagination] = useState<{ total: number; offset: number; limit: number; hasMore: boolean } | null>(null);
+    const [currentAnalysisAddress, setCurrentAnalysisAddress] = useState<string>('');
 
     // Show onboarding for first-time users after login
     React.useEffect(() => {
@@ -123,6 +126,8 @@ function App() {
 
         setLoading(true);
         setError(null);
+        setPagination(null);
+        setCurrentAnalysisAddress(address);
 
         try {
             // Free Tier Check
@@ -132,14 +137,44 @@ function App() {
                 txHash = await checkFreeTierTx();
             }
 
-            const response = await analyzeWallet(address, selectedChain, { txHash });
+            const response = await analyzeWallet(address, selectedChain, { txHash, limit: 100, offset: 0 });
             if (response.result) {
                 setWalletResult(response.result);
+                if (response.result.pagination) {
+                    setPagination(response.result.pagination);
+                }
             }
         } catch (err: any) {
             setError(err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Load more transactions (called by AnalysisView)
+    const handleLoadMoreTransactions = async () => {
+        if (!walletResult || !pagination?.hasMore || loadingMore) return;
+
+        setLoadingMore(true);
+        try {
+            const newOffset = pagination.offset + pagination.limit;
+            const { transactions: newTxs, pagination: newPagination } = await loadMoreTransactions(
+                currentAnalysisAddress,
+                selectedChain,
+                newOffset,
+                100
+            );
+
+            // Append new transactions
+            setWalletResult(prev => prev ? {
+                ...prev,
+                transactions: [...prev.transactions, ...newTxs]
+            } : prev);
+            setPagination(newPagination);
+        } catch (err: any) {
+            console.error('Failed to load more transactions:', err.message);
+        } finally {
+            setLoadingMore(false);
         }
     };
 
@@ -405,7 +440,12 @@ function App() {
 
                                 {/* Results */}
                                 {viewMode === 'wallet' && walletResult && (
-                                    <AnalysisView result={walletResult} />
+                                    <AnalysisView
+                                        result={walletResult}
+                                        pagination={pagination}
+                                        loadingMore={loadingMore}
+                                        onLoadMore={handleLoadMoreTransactions}
+                                    />
                                 )}
 
                                 {viewMode === 'contract' && contractResult && (

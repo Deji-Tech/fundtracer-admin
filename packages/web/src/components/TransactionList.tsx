@@ -1,21 +1,27 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Transaction, ChainId, TxCategory, TxStatus, CHAINS } from '@fundtracer/core';
 
 interface TransactionListProps {
     transactions: Transaction[];
     chain: ChainId;
+    pagination?: { total: number; offset: number; limit: number; hasMore: boolean } | null;
+    loadingMore?: boolean;
+    onLoadMore?: () => void;
 }
 
 type SortField = 'timestamp' | 'value' | 'status';
 type SortDirection = 'asc' | 'desc';
 
-function TransactionList({ transactions, chain }: TransactionListProps) {
+function TransactionList({ transactions, chain, pagination, loadingMore, onLoadMore }: TransactionListProps) {
     const [sortField, setSortField] = useState<SortField>('timestamp');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
     const [filterCategory, setFilterCategory] = useState<TxCategory | 'all'>('all');
     const [filterStatus, setFilterStatus] = useState<TxStatus | 'all'>('all');
     const [page, setPage] = useState(0);
     const pageSize = 25;
+
+    // Ref for infinite scroll sentinel
+    const sentinelRef = useRef<HTMLDivElement>(null);
 
     const chainConfig = CHAINS[chain];
 
@@ -67,6 +73,23 @@ function TransactionList({ transactions, chain }: TransactionListProps) {
     };
 
     const categories: TxCategory[] = ['transfer', 'contract_call', 'token_transfer', 'dex_swap', 'nft_transfer', 'bridge'];
+
+    // Infinite scroll: observe sentinel element
+    useEffect(() => {
+        if (!sentinelRef.current || !onLoadMore || !pagination?.hasMore || loadingMore) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && pagination?.hasMore && !loadingMore) {
+                    onLoadMore();
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        observer.observe(sentinelRef.current);
+        return () => observer.disconnect();
+    }, [onLoadMore, pagination?.hasMore, loadingMore]);
 
     return (
         <div>
@@ -261,6 +284,40 @@ function TransactionList({ transactions, chain }: TransactionListProps) {
                         Next →
                     </button>
                 </div>
+            )}
+
+            {/* Infinite Scroll: Pagination Info & Loading */}
+            {pagination && (
+                <div style={{
+                    padding: 'var(--space-4)',
+                    textAlign: 'center',
+                    borderTop: '1px solid var(--color-surface-border)',
+                    marginTop: 'var(--space-4)',
+                }}>
+                    <div style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-2)' }}>
+                        Showing {transactions.length} of {pagination.total} transactions
+                    </div>
+
+                    {loadingMore && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}>
+                            <div className="loading-spinner" style={{ width: 16, height: 16 }} />
+                            <span style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)' }}>
+                                Loading more transactions...
+                            </span>
+                        </div>
+                    )}
+
+                    {!pagination.hasMore && pagination.total > 0 && (
+                        <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)' }}>
+                            All transactions loaded
+                        </span>
+                    )}
+                </div>
+            )}
+
+            {/* Sentinel element for infinite scroll */}
+            {pagination?.hasMore && !loadingMore && (
+                <div ref={sentinelRef} style={{ height: 1 }} />
             )}
         </div>
     );

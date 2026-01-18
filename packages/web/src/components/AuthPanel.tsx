@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { saveAlchemyKey, removeAlchemyKey } from '../api';
-import logo from '../assets/logo.png';
+import TerminalAnimation from './TerminalAnimation';
 
 interface AuthPanelProps {
     showApiKeyForm: boolean;
@@ -78,8 +78,8 @@ function AuthPanel({ showApiKeyForm, setShowApiKeyForm }: AuthPanelProps) {
         return (
             <div className="card animate-fade-in animate-slide-up">
                 <div style={{ textAlign: 'center', padding: 'var(--space-6)' }}>
-                    <div style={{ marginBottom: 'var(--space-4)' }}>
-                        <img src={logo} alt="Logo" style={{ width: 80, height: 80, objectFit: 'contain' }} />
+                    <div style={{ marginBottom: 'var(--space-5)' }}>
+                        <TerminalAnimation />
                     </div>
                     <h2 style={{
                         fontSize: 'var(--text-xl)',

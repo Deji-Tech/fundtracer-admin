@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Transaction, ChainId, TxCategory, TxStatus, CHAINS } from '@fundtracer/core';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface TransactionListProps {
     transactions: Transaction[];
@@ -22,6 +23,7 @@ function TransactionList({ transactions, chain, pagination, loadingMore, onLoadM
 
     // Ref for infinite scroll sentinel
     const sentinelRef = useRef<HTMLDivElement>(null);
+    const isMobile = useIsMobile();
 
     const chainConfig = CHAINS[chain];
 
@@ -131,129 +133,176 @@ function TransactionList({ transactions, chain, pagination, loadingMore, onLoadM
                 </div>
             </div>
 
-            {/* Table */}
-            <div style={{ overflowX: 'auto' }}>
-                <table className="tx-table">
-                    <thead>
-                        <tr>
-                            <th>Hash</th>
-                            <th
-                                style={{ cursor: 'pointer' }}
-                                onClick={() => handleSort('timestamp')}
-                            >
-                                Time {sortField === 'timestamp' && (sortDirection === 'asc' ? '↑' : '↓')}
-                            </th>
-                            <th>From</th>
-                            <th>To</th>
-                            <th
-                                style={{ cursor: 'pointer' }}
-                                onClick={() => handleSort('value')}
-                            >
-                                Value {sortField === 'value' && (sortDirection === 'asc' ? '↑' : '↓')}
-                            </th>
-                            <th>Category</th>
-                            <th
-                                style={{ cursor: 'pointer' }}
-                                onClick={() => handleSort('status')}
-                            >
-                                Status {sortField === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {paginatedTxs.map((tx) => (
-                            <tr key={tx.hash}>
-                                <td>
-                                    <a
-                                        href={`${chainConfig.explorer}/tx/${tx.hash}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="tx-hash"
-                                    >
-                                        {formatHash(tx.hash)}
-                                    </a>
-                                </td>
-                                <td style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
-                                    {tx.timestamp > 0 ? formatDate(tx.timestamp) : <span title="Timestamp missing">-</span>}
-                                </td>
-                                <td>
-                                    <a
-                                        href={`${chainConfig.explorer}/address/${tx.from}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="tx-address"
-                                        style={{ color: 'var(--color-text-primary)' }}
-                                        title={tx.from}
-                                    >
-                                        {(tx as any).fromLabel || formatAddress(tx.from)}
-                                    </a>
-                                    {(tx as any).fromType === 'token' && (
-                                        <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-primary)' }}>🪙</span>
-                                    )}
-                                    {(tx as any).fromType === 'protocol' && (
-                                        <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-accent)' }}>⚡</span>
-                                    )}
-                                </td>
-                                <td>
-                                    {tx.to ? (
-                                        <>
-                                            <a
-                                                href={`${chainConfig.explorer}/address/${tx.to}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="tx-address"
-                                                style={{
-                                                    color: (tx as any).toLabel ? 'var(--color-primary)' : 'var(--color-text-primary)',
-                                                    fontWeight: (tx as any).toLabel ? 500 : 400
-                                                }}
-                                                title={tx.to}
-                                            >
-                                                {(tx as any).toLabel || formatAddress(tx.to)}
-                                            </a>
-                                            {(tx as any).toType === 'token' && (
-                                                <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-primary)' }} title="Token Contract">🪙</span>
-                                            )}
-                                            {(tx as any).toType === 'protocol' && (
-                                                <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-accent)' }} title="Protocol">⚡</span>
-                                            )}
-                                            {(tx as any).toType === 'contract' && (
-                                                <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-text-muted)' }} title="Known Contract">📄</span>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <span style={{ color: 'var(--color-text-muted)' }}>Contract Creation</span>
-                                    )}
-                                </td>
-                                <td>
-                                    <span className={`tx-value ${tx.isIncoming ? 'incoming' : 'outgoing'}`}>
-                                        {tx.isIncoming ? '+' : '-'}{tx.valueInEth.toFixed(4)} {
-                                            (tx.category === 'token_transfer' && tx.tokenTransfers && tx.tokenTransfers.length > 0)
-                                                ? tx.tokenTransfers[0].tokenSymbol
-                                                : 'ETH'
-                                        }
-                                    </span>
-                                </td>
-                                <td>
-                                    <span style={{
-                                        fontSize: 'var(--text-xs)',
-                                        padding: 'var(--space-1) var(--space-2)',
-                                        background: 'var(--color-bg-elevated)',
-                                        borderRadius: 'var(--radius-sm)',
-                                        color: 'var(--color-text-muted)',
-                                    }}>
-                                        {tx.category.replace(/_/g, ' ')}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span className={`tx-status ${tx.status}`}>
-                                        {tx.status === 'success' ? '✓' : '✗'} {tx.status}
-                                    </span>
-                                </td>
+            {/* Mobile: Card-based layout */}
+            {isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {paginatedTxs.map((tx) => (
+                        <div
+                            key={tx.hash}
+                            style={{
+                                background: 'var(--color-bg-tertiary)',
+                                borderRadius: 8,
+                                padding: 12,
+                                borderLeft: `3px solid ${tx.isIncoming ? '#4ade80' : '#f87171'}`,
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                <span className={`tx-value ${tx.isIncoming ? 'incoming' : 'outgoing'}`} style={{ fontSize: 14, fontWeight: 600 }}>
+                                    {tx.isIncoming ? '+' : '-'}{tx.valueInEth.toFixed(4)} ETH
+                                </span>
+                                <span className={`tx-status ${tx.status}`} style={{ fontSize: 11 }}>
+                                    {tx.status === 'success' ? '✓' : '✗'}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--color-text-muted)' }}>
+                                <span>{tx.timestamp > 0 ? new Date(tx.timestamp * 1000).toLocaleDateString() : '-'}</span>
+                                <a
+                                    href={`${chainConfig.explorer}/tx/${tx.hash}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ color: 'var(--color-text-secondary)' }}
+                                >
+                                    {tx.hash.slice(0, 8)}...
+                                </a>
+                            </div>
+                            <div style={{ marginTop: 8, fontSize: 10, color: 'var(--color-text-muted)' }}>
+                                <div style={{ marginBottom: 2 }}>
+                                    From: <span style={{ fontFamily: 'monospace' }}>{tx.from.slice(0, 10)}...</span>
+                                </div>
+                                {tx.to && (
+                                    <div>
+                                        To: <span style={{ fontFamily: 'monospace' }}>{tx.to.slice(0, 10)}...</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                /* Desktop: Table layout */
+                <div style={{ overflowX: 'auto' }}>
+                    <table className="tx-table">
+                        <thead>
+                            <tr>
+                                <th>Hash</th>
+                                <th
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => handleSort('timestamp')}
+                                >
+                                    Time {sortField === 'timestamp' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => handleSort('value')}
+                                >
+                                    Value {sortField === 'value' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th>Category</th>
+                                <th
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => handleSort('status')}
+                                >
+                                    Status {sortField === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                </th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            {paginatedTxs.map((tx) => (
+                                <tr key={tx.hash}>
+                                    <td>
+                                        <a
+                                            href={`${chainConfig.explorer}/tx/${tx.hash}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="tx-hash"
+                                        >
+                                            {formatHash(tx.hash)}
+                                        </a>
+                                    </td>
+                                    <td style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
+                                        {tx.timestamp > 0 ? formatDate(tx.timestamp) : <span title="Timestamp missing">-</span>}
+                                    </td>
+                                    <td>
+                                        <a
+                                            href={`${chainConfig.explorer}/address/${tx.from}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="tx-address"
+                                            style={{ color: 'var(--color-text-primary)' }}
+                                            title={tx.from}
+                                        >
+                                            {(tx as any).fromLabel || formatAddress(tx.from)}
+                                        </a>
+                                        {(tx as any).fromType === 'token' && (
+                                            <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-primary)' }}>🪙</span>
+                                        )}
+                                        {(tx as any).fromType === 'protocol' && (
+                                            <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-accent)' }}>⚡</span>
+                                        )}
+                                    </td>
+                                    <td>
+                                        {tx.to ? (
+                                            <>
+                                                <a
+                                                    href={`${chainConfig.explorer}/address/${tx.to}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="tx-address"
+                                                    style={{
+                                                        color: (tx as any).toLabel ? 'var(--color-primary)' : 'var(--color-text-primary)',
+                                                        fontWeight: (tx as any).toLabel ? 500 : 400
+                                                    }}
+                                                    title={tx.to}
+                                                >
+                                                    {(tx as any).toLabel || formatAddress(tx.to)}
+                                                </a>
+                                                {(tx as any).toType === 'token' && (
+                                                    <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-primary)' }} title="Token Contract">🪙</span>
+                                                )}
+                                                {(tx as any).toType === 'protocol' && (
+                                                    <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-accent)' }} title="Protocol">⚡</span>
+                                                )}
+                                                {(tx as any).toType === 'contract' && (
+                                                    <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-text-muted)' }} title="Known Contract">📄</span>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <span style={{ color: 'var(--color-text-muted)' }}>Contract Creation</span>
+                                        )}
+                                    </td>
+                                    <td>
+                                        <span className={`tx-value ${tx.isIncoming ? 'incoming' : 'outgoing'}`}>
+                                            {tx.isIncoming ? '+' : '-'}{tx.valueInEth.toFixed(4)} {
+                                                (tx.category === 'token_transfer' && tx.tokenTransfers && tx.tokenTransfers.length > 0)
+                                                    ? tx.tokenTransfers[0].tokenSymbol
+                                                    : 'ETH'
+                                            }
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span style={{
+                                            fontSize: 'var(--text-xs)',
+                                            padding: 'var(--space-1) var(--space-2)',
+                                            background: 'var(--color-bg-elevated)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            color: 'var(--color-text-muted)',
+                                        }}>
+                                            {tx.category.replace(/_/g, ' ')}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span className={`tx-status ${tx.status}`}>
+                                            {tx.status === 'success' ? '✓' : '✗'} {tx.status}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* Pagination */}
             {totalPages > 1 && (

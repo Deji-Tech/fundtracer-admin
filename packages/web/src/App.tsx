@@ -19,9 +19,16 @@ import FeedbackModal from './components/FeedbackModal';
 import PaymentModal from './components/PaymentModal';
 import ContractSearch from './components/ContractSearch';
 
+import PrivacyPolicyPage from './components/PrivacyPolicyPage';
+
 type ViewMode = 'wallet' | 'contract' | 'compare' | 'sybil';
 
 function App() {
+    // Simple routing for Privacy Policy standalone page
+    if (window.location.pathname === '/privacy') {
+        return <PrivacyPolicyPage />;
+    }
+
     const { user, profile, loading: authLoading } = useAuth();
 
     const [viewMode, setViewMode] = useState<ViewMode>('wallet');

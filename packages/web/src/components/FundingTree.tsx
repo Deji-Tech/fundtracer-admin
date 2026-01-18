@@ -228,6 +228,9 @@ function FundingTree({ node, direction, chain = 'ethereum', title }: FundingTree
     const chainConfig = CHAINS[chain];
     const isMobile = useIsMobile();
 
+    // Safety checks
+    if (!node || !chainConfig) return null;
+
     // Flatten tree for searching (memoized)
     const flattenTree = useCallback((n: FundingNode, depth = 0): FundingNode[] => {
         const result: FundingNode[] = [{ ...n, depth }];

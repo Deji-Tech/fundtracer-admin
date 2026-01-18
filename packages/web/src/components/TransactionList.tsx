@@ -151,7 +151,7 @@ function TransactionList({ transactions, chain }: TransactionListProps) {
                                     </a>
                                 </td>
                                 <td style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
-                                    {formatDate(tx.timestamp)}
+                                    {tx.timestamp > 0 ? formatDate(tx.timestamp) : <span title="Timestamp missing">-</span>}
                                 </td>
                                 <td>
                                     <a
@@ -160,28 +160,54 @@ function TransactionList({ transactions, chain }: TransactionListProps) {
                                         rel="noopener noreferrer"
                                         className="tx-address"
                                         style={{ color: 'var(--color-text-primary)' }}
+                                        title={tx.from}
                                     >
-                                        {formatAddress(tx.from)}
+                                        {(tx as any).fromLabel || formatAddress(tx.from)}
                                     </a>
+                                    {(tx as any).fromType === 'token' && (
+                                        <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-primary)' }}>🪙</span>
+                                    )}
+                                    {(tx as any).fromType === 'protocol' && (
+                                        <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-accent)' }}>⚡</span>
+                                    )}
                                 </td>
                                 <td>
                                     {tx.to ? (
-                                        <a
-                                            href={`${chainConfig.explorer}/address/${tx.to}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="tx-address"
-                                            style={{ color: 'var(--color-text-primary)' }}
-                                        >
-                                            {formatAddress(tx.to)}
-                                        </a>
+                                        <>
+                                            <a
+                                                href={`${chainConfig.explorer}/address/${tx.to}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="tx-address"
+                                                style={{
+                                                    color: (tx as any).toLabel ? 'var(--color-primary)' : 'var(--color-text-primary)',
+                                                    fontWeight: (tx as any).toLabel ? 500 : 400
+                                                }}
+                                                title={tx.to}
+                                            >
+                                                {(tx as any).toLabel || formatAddress(tx.to)}
+                                            </a>
+                                            {(tx as any).toType === 'token' && (
+                                                <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-primary)' }} title="Token Contract">🪙</span>
+                                            )}
+                                            {(tx as any).toType === 'protocol' && (
+                                                <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-accent)' }} title="Protocol">⚡</span>
+                                            )}
+                                            {(tx as any).toType === 'contract' && (
+                                                <span style={{ marginLeft: '4px', fontSize: '10px', color: 'var(--color-text-muted)' }} title="Known Contract">📄</span>
+                                            )}
+                                        </>
                                     ) : (
                                         <span style={{ color: 'var(--color-text-muted)' }}>Contract Creation</span>
                                     )}
                                 </td>
                                 <td>
                                     <span className={`tx-value ${tx.isIncoming ? 'incoming' : 'outgoing'}`}>
-                                        {tx.isIncoming ? '+' : '-'}{tx.valueInEth.toFixed(4)} ETH
+                                        {tx.isIncoming ? '+' : '-'}{tx.valueInEth.toFixed(4)} {
+                                            (tx.category === 'token_transfer' && tx.tokenTransfers && tx.tokenTransfers.length > 0)
+                                                ? tx.tokenTransfers[0].tokenSymbol
+                                                : 'ETH'
+                                        }
                                     </span>
                                 </td>
                                 <td>

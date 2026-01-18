@@ -9,7 +9,7 @@ import { ChainId, AnalysisResult, MultiWalletResult } from '@fundtracer/core';
 // In production, endpoints already include '/api' prefix, so base should be empty
 const API_BASE = import.meta.env.VITE_API_URL ||
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:3001'
+        ? 'http://localhost:3000'
         : '');
 
 interface ApiResponse<T> {
@@ -163,4 +163,30 @@ export async function fetchDuneInteractors(
         limit: options?.limit || 1000,
         customApiKey: options?.customApiKey,
     });
+}
+
+/** Look up contract info by address */
+export async function lookupContract(
+    address: string
+): Promise<{ success: boolean; address: string; name?: string; type?: string; symbol?: string; isKnown: boolean }> {
+    return apiRequest(`/api/contracts/lookup/${address}`);
+}
+
+/** Batch lookup multiple contract addresses */
+export async function batchLookupContracts(
+    addresses: string[]
+): Promise<{ success: boolean; contracts: Record<string, any>; total: number }> {
+    return apiRequest('/api/contracts/batch', 'POST', { addresses });
+}
+
+/** Search contracts by name */
+export async function searchContracts(
+    query: string
+): Promise<{ success: boolean; results: Array<{ address: string; name: string; type: string }>; total: number }> {
+    return apiRequest(`/api/contracts/search?q=${encodeURIComponent(query)}`);
+}
+
+/** Trigger contract database refresh (admin) */
+export async function refreshContracts(): Promise<{ success: boolean; added: number; total: number }> {
+    return apiRequest('/api/contracts/refresh', 'POST');
 }

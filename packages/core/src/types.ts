@@ -96,6 +96,7 @@ export interface FundingNode {
     suspiciousScore: number;
     suspiciousReasons: string[];
     isInfrastructure?: boolean;
+    entityType?: 'cex' | 'dex' | 'bridge' | 'wallet' | 'mixer' | 'contract' | 'other';
 }
 
 /** Funding tree configuration */

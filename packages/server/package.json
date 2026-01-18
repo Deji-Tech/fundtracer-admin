@@ -12,6 +12,7 @@
     "dependencies": {
         "@fundtracer/core": "*",
         "@types/jsonwebtoken": "^9.0.10",
+        "cheerio": "^1.1.2",
         "cors": "^2.8.5",
         "dotenv": "^16.3.1",
         "encoding": "^0.1.13",

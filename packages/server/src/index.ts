@@ -15,7 +15,9 @@ import { usageMiddleware } from './middleware/usage.js';
 import { analyzeRoutes } from './routes/analyze.js';
 import { userRoutes } from './routes/user.js';
 import { duneRoutes } from './routes/dune.js';
+import contractRoutes from './routes/contracts.js';
 import { PaymentListener } from './services/PaymentListener.js';
+import contractService from './services/ContractService.js';
 
 dotenv.config();
 
@@ -98,6 +100,7 @@ import { authRoutes } from './routes/auth.js';
 // Mount router at both /api (for local dev) and root (for Netlify environment where /api might be stripped)
 apiRouter.use('/user', authMiddleware, userRoutes);
 apiRouter.use('/auth', authRoutes); // Public auth route
+apiRouter.use('/contracts', contractRoutes); // Public contract lookup
 apiRouter.use('/analyze', authMiddleware, usageMiddleware, analyzeRoutes);
 apiRouter.use('/dune', authMiddleware, duneRoutes);
 

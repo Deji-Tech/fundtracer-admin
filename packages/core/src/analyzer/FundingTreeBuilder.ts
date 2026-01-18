@@ -12,7 +12,7 @@ import {
 } from '../types.js';
 
 const DEFAULT_CONFIG: FundingTreeConfig = {
-    maxDepth: 5, // Balanced depth for complete but timely analysis
+    maxDepth: 2, // Reduced depth to minimize API calls
     direction: 'both',
 };
 
@@ -29,23 +29,25 @@ export class FundingTreeBuilder {
     /** Build funding tree for sources (who funded this wallet) */
     async buildSourceTree(
         address: string,
-        config: Partial<FundingTreeConfig> = {}
+        config: Partial<FundingTreeConfig> = {},
+        preloadedTxs?: Transaction[]
     ): Promise<FundingNode> {
         this.visitedAddresses.clear();
         const mergedConfig = { ...DEFAULT_CONFIG, ...config };
 
-        return this.buildTree(address, 0, mergedConfig, 'source');
+        return this.buildTree(address, 0, mergedConfig, 'source', preloadedTxs);
     }
 
     /** Build funding tree for destinations (who this wallet funded) */
     async buildDestinationTree(
         address: string,
-        config: Partial<FundingTreeConfig> = {}
+        config: Partial<FundingTreeConfig> = {},
+        preloadedTxs?: Transaction[]
     ): Promise<FundingNode> {
         this.visitedAddresses.clear();
         const mergedConfig = { ...DEFAULT_CONFIG, ...config };
 
-        return this.buildTree(address, 0, mergedConfig, 'destination');
+        return this.buildTree(address, 0, mergedConfig, 'destination', preloadedTxs);
     }
 
     /** Recursive tree builder */
@@ -53,7 +55,8 @@ export class FundingTreeBuilder {
         address: string,
         depth: number,
         config: FundingTreeConfig,
-        direction: 'source' | 'destination'
+        direction: 'source' | 'destination',
+        preloadedTxs?: Transaction[]
     ): Promise<FundingNode> {
         const normalizedAddr = address.toLowerCase();
 
@@ -83,6 +86,10 @@ export class FundingTreeBuilder {
         if (infraInfo) {
             node.isInfrastructure = true;
             node.label = infraInfo.name;
+            node.entityType = infraInfo.type === 'exchange' ? 'cex' :
+                infraInfo.type === 'bridge' ? 'bridge' :
+                    infraInfo.type === 'mixer' ? 'mixer' :
+                        infraInfo.category === 'dex' ? 'dex' : 'contract';
             // Stop recursion for infrastructure
             return node;
         }
@@ -99,10 +106,17 @@ export class FundingTreeBuilder {
 
         try {
             // Get transactions
-            const txs = await this.provider.getTransactions(normalizedAddr, {
-                timeRange: config.timeRange,
-                minValue: config.minValueEth,
-            });
+            let txs: Transaction[];
+
+            // Use preloaded transactions if at root level and available
+            if (depth === 0 && preloadedTxs) {
+                txs = preloadedTxs;
+            } else {
+                txs = await this.provider.getTransactions(normalizedAddr, {
+                    timeRange: config.timeRange,
+                    minValue: config.minValueEth,
+                });
+            }
 
             // Filter by direction AND only native ETH transfers (not tokens which have different value scales)
             const isEthTransfer = (tx: Transaction) =>

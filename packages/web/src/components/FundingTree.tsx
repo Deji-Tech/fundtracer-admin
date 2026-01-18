@@ -163,6 +163,18 @@ function FundingTree({ node, direction, chain = 'ethereum', title }: FundingTree
         }
     }, []);
 
+    // Handle ESC to exit fullscreen
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isFullscreen) {
+                setIsFullscreen(false);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isFullscreen]);
+
     // Export tree as PNG
     const handleExport = useCallback(() => {
         if (!svgRef.current) return;
@@ -195,225 +207,310 @@ function FundingTree({ node, direction, chain = 'ethereum', title }: FundingTree
 
     // Main D3 effect
     useEffect(() => {
-        if (!svgRef.current || !containerRef.current) return;
+        if (!svgRef.current || !containerRef.current || !node) return;
 
-        const container = containerRef.current;
-        const width = container.clientWidth;
-        const height = isFullscreen ? window.innerHeight - 120 : 450;
-        const margin = { top: 40, right: 180, bottom: 40, left: 180 };
+        try {
 
-        // Clear previous
-        d3.select(svgRef.current).selectAll('*').remove();
+            const container = containerRef.current;
+            const width = container.clientWidth;
+            const height = isFullscreen ? window.innerHeight - 120 : 450;
+            const margin = { top: 40, right: 180, bottom: 40, left: 180 };
 
-        const svg = d3.select(svgRef.current)
-            .attr('width', width)
-            .attr('height', height)
-            .style('background', 'radial-gradient(ellipse at center, #111 0%, #0a0a0a 100%)');
+            // Clear previous
+            d3.select(svgRef.current).selectAll('*').remove();
 
-        // Create gradient for links
-        const defs = svg.append('defs');
+            const svg = d3.select(svgRef.current)
+                .attr('width', width)
+                .attr('height', height)
+                .style('background', 'radial-gradient(ellipse at center, #111 0%, #0a0a0a 100%)');
 
-        const gradient = defs.append('linearGradient')
-            .attr('id', `link-gradient-${direction}`)
-            .attr('gradientUnits', 'userSpaceOnUse');
+            // Create gradient for links
+            const defs = svg.append('defs');
 
-        gradient.append('stop')
-            .attr('offset', '0%')
-            .attr('stop-color', direction === 'source' ? '#22c55e' : '#ef4444');
+            const gradient = defs.append('linearGradient')
+                .attr('id', `link-gradient-${direction}`)
+                .attr('gradientUnits', 'userSpaceOnUse');
 
-        gradient.append('stop')
-            .attr('offset', '100%')
-            .attr('stop-color', '#333');
+            gradient.append('stop')
+                .attr('offset', '0%')
+                .attr('stop-color', direction === 'source' ? '#22c55e' : '#ef4444');
 
-        // Create container for zoom
-        const g = svg.append('g')
-            .attr('class', 'tree-container')
-            .attr('transform', `translate(${margin.left}, ${margin.top})`);
+            gradient.append('stop')
+                .attr('offset', '100%')
+                .attr('stop-color', '#333');
 
-        gRef.current = g;
+            // Create container for zoom
+            const g = svg.append('g')
+                .attr('class', 'tree-container')
+                .attr('transform', `translate(${margin.left}, ${margin.top})`);
 
-        // Filter collapsed nodes
-        const filterCollapsed = (n: FundingNode): FundingNode => {
-            if (collapsedNodes.has(n.address)) {
-                return { ...n, children: [] };
-            }
-            return { ...n, children: n.children.map(filterCollapsed) };
-        };
+            gRef.current = g;
 
-        const filteredNode = filterCollapsed(node);
-
-        // Create hierarchy
-        const root = d3.hierarchy(filteredNode);
-
-        // Tree layout
-        const treeLayout = d3.tree<FundingNode>()
-            .size([height - margin.top - margin.bottom, width - margin.left - margin.right])
-            .separation((a, b) => (a.parent === b.parent ? 1 : 1.5));
-
-        const treeData = treeLayout(root);
-
-        // Draw links with animation
-        g.selectAll('.tree-link')
-            .data(treeData.links())
-            .join('path')
-            .attr('class', 'tree-link')
-            .attr('d', d3.linkHorizontal<any, any>()
-                .x(d => d.y)
-                .y(d => d.x)
-            )
-            .style('fill', 'none')
-            .style('stroke', (d: any) => {
-                if (highlightedAddress && (
-                    d.source.data.address === highlightedAddress ||
-                    d.target.data.address === highlightedAddress
-                )) {
-                    return direction === 'source' ? '#22c55e' : '#ef4444';
+            // Filter collapsed nodes
+            const filterCollapsed = (n: FundingNode): FundingNode => {
+                const children = n.children || [];
+                if (collapsedNodes.has(n.address)) {
+                    return { ...n, children: [] };
                 }
-                return '#2a2a2a';
-            })
-            .style('stroke-width', (d: any) => {
-                const value = d.target.data.totalValueInEth;
-                if (value < filterMinValue) return 0;
-                return Math.max(1.5, Math.min(4, Math.log(value + 1) * 1.5));
-            })
-            .style('stroke-opacity', (d: any) =>
-                highlightedAddress && d.target.data.address !== highlightedAddress ? 0.3 : 0.8
-            )
-            .style('transition', 'all 0.3s ease');
+                return { ...n, children: children.map(filterCollapsed) };
+            };
 
-        // Draw nodes
-        const nodes = g.selectAll('.tree-node')
-            .data(treeData.descendants())
-            .join('g')
-            .attr('class', 'tree-node')
-            .attr('transform', d => `translate(${d.y}, ${d.x})`)
-            .style('cursor', 'pointer')
-            .style('opacity', (d: any) => {
-                if (d.data.totalValueInEth < filterMinValue && d.depth > 0) return 0.2;
-                if (highlightedAddress && d.data.address !== highlightedAddress) return 0.5;
-                return 1;
+            const filteredNode = filterCollapsed(node);
+
+            // Optimization: Map of nodes that have real children (for collapse indicators)
+            const hasChildrenMap = new Set<string>();
+            const buildChildrenMap = (n: FundingNode) => {
+                if (n.children && n.children.length > 0) {
+                    hasChildrenMap.add(n.address);
+                    n.children.forEach(buildChildrenMap);
+                }
+            };
+            buildChildrenMap(node);
+
+            // Create hierarchy
+            const root = d3.hierarchy(filteredNode);
+
+            // Calculate layout size
+            const layoutHeight = Math.max(height - margin.top - margin.bottom, root.descendants().length * 40);
+
+            // Tree layout with separation
+            const treeLayout = d3.tree<FundingNode>()
+                .size([layoutHeight, width - margin.left - margin.right])
+                .separation((a, b) => (a.parent === b.parent ? 1.2 : 2.5));
+
+            const treeData = treeLayout(root);
+
+            // --- LINKS using Bezier Curves ---
+            g.selectAll('.tree-link')
+                .data(treeData.links())
+                .join(
+                    enter => enter.append('path')
+                        .attr('class', 'tree-link')
+                        .attr('d', d3.linkHorizontal<any, any>()
+                            .x(d => d.y)
+                            .y(d => d.x))
+                        .style('opacity', 0)
+                        .call(enter => enter.transition().duration(500).style('opacity', 1)),
+                    update => update.transition().duration(500)
+                        .attr('d', d3.linkHorizontal<any, any>()
+                            .x(d => d.y)
+                            .y(d => d.x))
+                )
+                .style('fill', 'none')
+                .style('stroke', (d: any) => {
+                    if (highlightedAddress && (
+                        d.source.data.address === highlightedAddress ||
+                        d.target.data.address === highlightedAddress
+                    )) {
+                        return direction === 'source' ? '#22c55e' : '#ef4444';
+                    }
+                    // Gradient stroke based on value? Simple gradient for now
+                    return `url(#link-gradient-${direction})`;
+                })
+                .style('stroke-width', (d: any) => {
+                    const value = d.target.data.totalValueInEth;
+                    if (value < filterMinValue) return 0;
+                    // Thicker lines for higher value
+                    return Math.max(1, Math.min(6, Math.log(value + 1) * 2));
+                })
+                .style('stroke-opacity', (d: any) =>
+                    highlightedAddress && d.target.data.address !== highlightedAddress ? 0.2 : 0.6
+                );
+
+            // --- NODES with Icons ---
+            const nodes = g.selectAll('.tree-node')
+                .data(treeData.descendants())
+                .join(
+                    enter => {
+                        const nodeGroup = enter.append('g')
+                            .attr('class', 'tree-node')
+                            .attr('transform', d => `translate(${d.y}, ${d.x})`)
+                            .style('cursor', 'pointer')
+                            .style('opacity', 0);
+
+                        nodeGroup.transition().duration(500).style('opacity', 1);
+                        return nodeGroup;
+                    },
+                    update => update.transition().duration(500)
+                        .attr('transform', d => `translate(${d.y}, ${d.x})`)
+                        .style('opacity', 1)
+                );
+
+            // Node Container (Circle + Icon)
+            nodes.each(function (d: any) {
+                const el = d3.select(this);
+                const isHighlight = d.data.address === highlightedAddress;
+                const isRoot = d.depth === 0;
+                const size = isRoot ? 18 : 14;
+
+                // Clear previous
+                el.selectAll('*').remove();
+
+                // Glow effect for highlighted/suspicious
+                if (isHighlight || d.data.suspiciousScore > 50) {
+                    el.append('circle')
+                        .attr('r', size + 8)
+                        .style('fill', 'none')
+                        .style('stroke', d.data.suspiciousScore > 50 ? '#ef4444' : '#22c55e')
+                        .style('stroke-width', 2)
+                        .style('stroke-opacity', 0.5)
+                        .style('filter', 'blur(4px)');
+                }
+
+                // Main Background Circle
+                el.append('circle')
+                    .attr('r', size)
+                    .style('fill', '#1a1a1a')
+                    .style('stroke', () => {
+                        if (isHighlight) return '#fff';
+                        if (d.data.suspiciousScore > 50) return '#ef4444'; // Red
+                        if (d.data.entityType === 'cex') return '#3b82f6'; // Blue
+                        if (d.data.entityType === 'dex') return '#a855f7'; // Purple
+                        if (d.data.entityType === 'bridge') return '#f97316'; // Orange
+                        if (d.data.isInfrastructure) return '#eab308'; // Yellow
+                        return '#555'; // Default gray
+                    })
+                    .style('stroke-width', isHighlight ? 2 : 1.5);
+
+                // Icon (Text/Emoji fallback since we can't render React components inside D3 easily without strict portal logic)
+                // Best approach for performance in D3 is using SVG foreignObject or text icons
+                const iconGroup = el.append('g').attr('class', 'node-icon');
+
+                let iconChar = '';
+                let iconColor = '#ccc';
+
+                switch (d.data.entityType) {
+                    case 'cex': iconChar = '🏦'; break;
+                    case 'dex': iconChar = '🔄'; break; // Swap
+                    case 'bridge': iconChar = '🌉'; break;
+                    case 'mixer': iconChar = '🌪️'; break;
+                    case 'contract': iconChar = '📜'; break;
+                    case 'wallet': iconChar = '👤'; break;
+                    default: iconChar = isRoot ? '📍' : '';
+                }
+
+                // If suspicious high
+                if (d.data.suspiciousScore > 50) iconChar = '⚠️';
+
+                if (iconChar) {
+                    iconGroup.append('text')
+                        .attr('dy', 5)
+                        .attr('text-anchor', 'middle')
+                        .style('font-size', '14px')
+                        .text(iconChar);
+                } else {
+                    // Default dot if no icon
+                    iconGroup.append('circle')
+                        .attr('r', 4)
+                        .style('fill', '#555');
+                }
             });
 
-        // Node outer glow for highlighted
-        nodes.filter((d: any) => d.data.address === highlightedAddress)
-            .append('circle')
-            .attr('r', 20)
-            .style('fill', 'none')
-            .style('stroke', direction === 'source' ? '#22c55e' : '#ef4444')
-            .style('stroke-width', 2)
-            .style('stroke-opacity', 0.5)
-            .style('filter', 'blur(4px)');
+            // Event Listeners
+            nodes
+                .on('click', (event, d: any) => {
+                    event.stopPropagation();
+                    setSelectedNode(d.data);
+                })
+                .on('dblclick', (event, d: any) => {
+                    event.stopPropagation();
+                    toggleCollapse(d.data.address);
+                })
+                .on('mouseenter', function (event, d: any) {
+                    setHoveredNode(d.data);
+                    d3.select(this).select('circle')
+                        .transition().duration(150)
+                        .attr('r', (d.depth === 0 ? 18 : 14) * 1.2)
+                        .style('stroke', '#fff');
+                })
+                .on('mouseleave', function (event, d: any) {
+                    setHoveredNode(null);
+                    const isHighlight = d.data.address === highlightedAddress;
+                    d3.select(this).select('circle')
+                        .transition().duration(150)
+                        .attr('r', d.depth === 0 ? 18 : 14)
+                        .style('stroke', () => {
+                            if (isHighlight) return '#fff';
+                            if (d.data.suspiciousScore > 50) return '#ef4444';
+                            if (d.data.entityType === 'cex') return '#3b82f6';
+                            if (d.data.entityType === 'dex') return '#a855f7';
+                            if (d.data.entityType === 'bridge') return '#f97316';
+                            if (d.data.isInfrastructure) return '#eab308';
+                            return '#555';
+                        });
+                });
 
-        // Node circles with gradient fills
-        nodes.append('circle')
-            .attr('r', (d: any) => {
-                const baseSize = Math.max(6, Math.min(14, d.data.totalValueInEth * 2 + 6));
-                return d.data.address === highlightedAddress ? baseSize * 1.3 : baseSize;
-            })
-            .style('fill', (d: any) => {
-                if (d.depth === 0) return '#1a1a1a';
-                if (d.data.address === highlightedAddress) return direction === 'source' ? '#22c55e' : '#ef4444';
-                if (d.data.suspiciousScore > 50) return '#7f1d1d';
-                if (d.data.suspiciousScore > 25) return '#78350f';
-                return '#1a1a1a';
-            })
-            .style('stroke', (d: any) => {
-                if (d.data.address === highlightedAddress) return '#fff';
-                if (d.data.suspiciousScore > 50) return '#f87171';
-                if (d.data.suspiciousScore > 25) return '#fbbf24';
-                if (d.depth === 0) return '#e5e5e5';
-                return '#4a4a4a';
-            })
-            .style('stroke-width', (d: any) => d.data.address === highlightedAddress ? 3 : 1.5)
-            .on('click', (event, d: any) => {
-                event.stopPropagation();
-                setSelectedNode(d.data);
-            })
-            .on('dblclick', (event, d: any) => {
-                event.stopPropagation();
-                toggleCollapse(d.data.address);
-            })
-            .on('mouseenter', function (event, d: any) {
-                setHoveredNode(d.data);
-                d3.select(this)
-                    .transition()
-                    .duration(150)
-                    .attr('r', parseFloat(d3.select(this).attr('r')) * 1.3)
-                    .style('filter', 'drop-shadow(0 0 8px rgba(255,255,255,0.3))');
-            })
-            .on('mouseleave', function (event, d: any) {
-                setHoveredNode(null);
-                const baseSize = Math.max(6, Math.min(14, d.data.totalValueInEth * 2 + 6));
-                d3.select(this)
-                    .transition()
-                    .duration(150)
-                    .attr('r', d.data.address === highlightedAddress ? baseSize * 1.3 : baseSize)
-                    .style('filter', 'none');
+            // Collapse indicators
+            nodes.each(function (d: any) {
+                if (hasChildrenMap.has(d.data.address)) {
+                    d3.select(this).append('circle')
+                        .attr('class', 'collapse-indicator')
+                        .attr('r', 5)
+                        .attr('cx', 18)
+                        .style('fill', collapsedNodes.has(d.data.address) ? '#fff' : '#1a1a1a')
+                        .style('stroke', '#555')
+                        .style('stroke-width', 1)
+                        .style('cursor', 'pointer')
+                        .on('click', (e: any) => {
+                            e.stopPropagation();
+                            toggleCollapse(d.data.address);
+                        });
+                }
             });
 
-        // Collapse indicators
-        nodes.filter((d: any) => {
-            const originalNode = flattenTree(node).find(n => n.address === d.data.address);
-            return !!(originalNode && originalNode.children.length > 0);
-        })
-            .append('circle')
-            .attr('r', 4)
-            .attr('cx', 16)
-            .style('fill', (d: any) => collapsedNodes.has(d.data.address) ? '#555' : 'transparent')
-            .style('stroke', '#555')
-            .style('stroke-width', 1)
-            .style('cursor', 'pointer')
-            .on('click', (event, d: any) => {
-                event.stopPropagation();
-                toggleCollapse(d.data.address);
-            });
+            // Smart Labels (Only showing significant nodes or hovered)
+            if (showLabels) {
+                nodes.append('text')
+                    .attr('dy', -22)
+                    .attr('text-anchor', 'middle')
+                    .style('font-size', '10px')
+                    .style('fill', (d: any) => {
+                        if (d.data.address === highlightedAddress) return '#fff';
+                        if (d.data.entityType) return '#ccc'; // Brighter for entities
+                        return '#666';
+                    })
+                    .style('font-family', 'JetBrains Mono, monospace')
+                    .style('font-weight', (d: any) => d.data.address === highlightedAddress || d.data.entityType ? 600 : 400)
+                    .style('pointer-events', 'none')
+                    .style('text-shadow', '0 2px 4px #000') // Better readability against dark background
+                    .text((d: any) => {
+                        // Show Name if infrastructure
+                        if (d.data.label) return d.data.label.length > 15 ? d.data.label.slice(0, 15) + '...' : d.data.label;
+                        return `${d.data.address.slice(0, 6)}...${d.data.address.slice(-4)}`;
+                    });
+            }
 
-        // Node labels
-        if (showLabels) {
-            nodes.append('text')
-                .attr('dy', -16)
-                .attr('text-anchor', 'middle')
-                .style('font-size', '10px')
-                .style('fill', (d: any) => d.data.address === highlightedAddress ? '#fff' : '#666')
-                .style('font-family', 'JetBrains Mono, monospace')
-                .style('font-weight', (d: any) => d.data.address === highlightedAddress ? 600 : 400)
-                .text((d: any) => `${d.data.address.slice(0, 6)}...${d.data.address.slice(-4)}`);
+            // Setup zoom behavior
+            const zoom = d3.zoom<SVGSVGElement, unknown>()
+                .scaleExtent([0.1, 5])
+                .on('zoom', (event) => {
+                    g.attr('transform', event.transform);
+                    setZoomLevel(event.transform.k);
+                });
+
+            zoomRef.current = zoom;
+            svg.call(zoom);
+
+            // Initial positioning logic remains similar
+            const bounds = g.node()!.getBBox();
+            const fullWidth = bounds.width + margin.left + margin.right;
+            const fullHeight = bounds.height + margin.top + margin.bottom;
+            const scale = Math.min(width / fullWidth, height / fullHeight, 1);
+            const translateX = (width - fullWidth * scale) / 2 + margin.left;
+            const translateY = (height - fullHeight * scale) / 2 + margin.top;
+
+            if (!zoomRef.current) {
+                svg.call(zoom.transform, d3.zoomIdentity.translate(translateX, translateY).scale(scale));
+            } else {
+                // Only reset if first render or drastic change? 
+                // Actually let's keep it resetting for now on data change
+                svg.call(zoom.transform, d3.zoomIdentity.translate(translateX, translateY).scale(scale));
+            }
+
+        } catch (err) {
+            console.error('FundingTree render error:', err);
         }
-
-        // Value labels
-        if (showValues) {
-            nodes.filter((d: any) => d.data.totalValueInEth > 0)
-                .append('text')
-                .attr('dy', 24)
-                .attr('text-anchor', 'middle')
-                .style('font-size', '9px')
-                .style('fill', direction === 'source' ? '#4ade80' : '#f87171')
-                .style('font-family', 'JetBrains Mono, monospace')
-                .text((d: any) => `${d.data.totalValueInEth.toFixed(4)} ETH`);
-        }
-
-        // Setup zoom behavior
-        const zoom = d3.zoom<SVGSVGElement, unknown>()
-            .scaleExtent([0.1, 5])
-            .on('zoom', (event) => {
-                g.attr('transform', event.transform);
-                setZoomLevel(event.transform.k);
-            });
-
-        zoomRef.current = zoom;
-        svg.call(zoom);
-
-        // Initial centering
-        const bounds = g.node()!.getBBox();
-        const fullWidth = bounds.width + margin.left + margin.right;
-        const fullHeight = bounds.height + margin.top + margin.bottom;
-        const scale = Math.min(width / fullWidth, height / fullHeight, 1);
-        const translateX = (width - fullWidth * scale) / 2 + margin.left;
-        const translateY = (height - fullHeight * scale) / 2 + margin.top;
-
-        svg.call(zoom.transform, d3.zoomIdentity.translate(translateX, translateY).scale(scale));
-
-    }, [node, direction, isFullscreen, collapsedNodes, highlightedAddress, showLabels, showValues, filterMinValue, flattenTree, toggleCollapse]);
+    }, [node, direction, isFullscreen, collapsedNodes, highlightedAddress, showLabels, showValues, filterMinValue, toggleCollapse]);
 
     const formatValue = (val: number) => val < 0.0001 ? '<0.0001' : val.toFixed(4);
 

@@ -89,7 +89,9 @@ function AnalysisView({ result }: AnalysisViewProps) {
                 </div>
                 <div className="stat-card">
                     <div className="stat-label">Activity Period</div>
-                    <div className="stat-value">{result.summary.activityPeriodDays} days</div>
+                    <div className="stat-value">
+                        {result.summary.activityPeriodDays} {result.summary.activityPeriodDays === 1 ? 'day' : 'days'}
+                    </div>
                 </div>
                 <div className="stat-card">
                     <div className="stat-label">Unique Addresses</div>
@@ -340,10 +342,10 @@ function SuspiciousTab({ indicators }: { indicators: SuspiciousIndicator[] }) {
                                     : 'var(--color-bg-tertiary)',
                         borderRadius: 'var(--radius-md)',
                         borderLeft: `3px solid ${indicator.severity === 'critical' || indicator.severity === 'high'
-                                ? 'var(--color-danger-text)'
-                                : indicator.severity === 'medium'
-                                    ? 'var(--color-warning-text)'
-                                    : 'var(--color-text-muted)'
+                            ? 'var(--color-danger-text)'
+                            : indicator.severity === 'medium'
+                                ? 'var(--color-warning-text)'
+                                : 'var(--color-text-muted)'
                             }`,
                     }}
                 >

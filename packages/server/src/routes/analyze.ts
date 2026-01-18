@@ -13,8 +13,138 @@ import {
     FilterOptions
 } from '@fundtracer/core';
 import { DuneService } from '../services/DuneService.js';
+import contractService from '../services/ContractService.js';
 
 const router = Router();
+
+// Helper to label contracts in transactions
+function labelContracts(transactions: any[]): any[] {
+    return transactions.map(tx => {
+        const toInfo = tx.to ? contractService.getContract(tx.to) : null;
+        const fromInfo = tx.from ? contractService.getContract(tx.from) : null;
+
+        // Queue lookup if unknown and appears to be a contract interaction
+        if (tx.to && !toInfo && /^0x[a-fA-F0-9]{40}$/.test(tx.to)) {
+            const isContractInteraction = [
+                'contract_call', 'token_transfer', 'dex_swap',
+                'bridge', 'lending', 'staking', 'nft_transfer'
+            ].includes(tx.category);
+
+            if (isContractInteraction) {
+                contractService.queueLookup(tx.to);
+            }
+        }
+
+        return {
+            ...tx,
+            toLabel: toInfo ? (toInfo.symbol ? `${toInfo.name} (${toInfo.symbol})` : toInfo.name) : null,
+            fromLabel: fromInfo ? (fromInfo.symbol ? `${fromInfo.name} (${fromInfo.symbol})` : fromInfo.name) : null,
+            toType: toInfo?.type || null,
+            fromType: fromInfo?.type || null,
+        };
+    });
+}
+
+// Helper to label addresses in analysis results
+function enrichAnalysisResult(result: any): any {
+    if (!result) return result;
+
+    // Label transactions
+    if (result.transactions) {
+        result.transactions = labelContracts(result.transactions);
+    }
+
+    // Re-generate projectsInteracted using ContractService data
+    if (result.transactions) {
+        const projectMap = new Map<string, any>();
+
+        // Initialize with existing findings from WalletAnalyzer
+        if (result.projectsInteracted) {
+            result.projectsInteracted.forEach((p: any) => projectMap.set(p.contractAddress.toLowerCase(), p));
+        }
+
+        // Scan all transactions to find more contract interactions
+        result.transactions.forEach((tx: any) => {
+            if (!tx.to) return;
+
+            const addr = tx.to.toLowerCase();
+            const contractInfo = contractService.getContract(addr);
+
+            // If it's a known contract OR explicitly a contract call
+            if (contractInfo || tx.category === 'contract_call') {
+                if (!projectMap.has(addr)) {
+                    projectMap.set(addr, {
+                        contractAddress: addr,
+                        projectName: contractInfo?.name || null,
+                        category: contractInfo?.type === 'token' ? 'token' : (contractInfo ? 'defi' : 'unknown'),
+                        interactionCount: 0,
+                        totalValueInEth: 0,
+                        firstInteraction: tx.timestamp,
+                        lastInteraction: tx.timestamp
+                    });
+                }
+
+                const p = projectMap.get(addr);
+                // Only increment count/value if this tx wasn't already counted by WalletAnalyzer
+                // WalletAnalyzer counts based on KNOWN_PROJECTS or category='contract_call'
+                // Since we are iterating all txs, and we seeded the map with WalletAnalyzer results,
+                // we need to be careful not to double count if we are just "updating" existing entries.
+                // ACTUALLY: WalletAnalyzer's list is likely empty or very incomplete. 
+                // It's cleaner to Re-calculate counts for everything found in ContractService, 
+                // but preserve the "category" if WalletAnalyzer found something specific.
+
+                // Let's just update the metadata (name/category) if it exists, 
+                // and if it DOESNT exist, we create it and count valid txs.
+                // But wait, if we create it, we need to count THIS tx.
+
+                // Simpler approach:
+                // 1. Identify all contract addresses encountered
+                // 2. Sum up stats
+                // 3. Use ContractService for names/categories
+            }
+        });
+
+        // Simpler implementation: Re-scan everything.
+        const newProjectMap = new Map<string, any>();
+
+        result.transactions.forEach((tx: any) => {
+            if (!tx.to) return;
+            const addr = tx.to.toLowerCase();
+            const contractInfo = contractService.getContract(addr);
+
+            if (contractInfo || tx.category === 'contract_call' || tx.category === 'token_transfer' || tx.category === 'dex_swap') {
+                if (!newProjectMap.has(addr)) {
+                    newProjectMap.set(addr, {
+                        contractAddress: addr,
+                        projectName: contractInfo?.name || null,
+                        category: contractInfo?.type === 'token' ? 'token' : (contractInfo ? 'defi' : 'unknown'),
+                        interactionCount: 0,
+                        totalValueInEth: 0,
+                        firstInteraction: tx.timestamp,
+                        lastInteraction: tx.timestamp
+                    });
+                }
+
+                const p = newProjectMap.get(addr);
+                p.interactionCount++;
+                p.totalValueInEth += parseFloat(tx.valueInEth || 0);
+                p.lastInteraction = Math.max(p.lastInteraction, tx.timestamp);
+                p.firstInteraction = Math.min(p.firstInteraction, tx.timestamp);
+            }
+        });
+
+        result.projectsInteracted = Array.from(newProjectMap.values())
+            .sort((a: any, b: any) => b.interactionCount - a.interactionCount);
+    }
+
+    // Label funding sources
+    if (result.fundingSources?.firstFunder) {
+        const funderInfo = contractService.getContract(result.fundingSources.firstFunder);
+        result.fundingSources.firstFunderLabel = funderInfo?.name || null;
+    }
+
+    return result;
+}
 
 // Get Alchemy API key for a user
 async function getAlchemyKeyForUser(userId: string): Promise<string> {
@@ -113,18 +243,20 @@ router.post('/wallet', async (req: AuthenticatedRequest, res: Response) => {
 
         const analyzer = new WalletAnalyzer({
             alchemy: alchemyKey,
+            moralis: process.env.MORALIS_API_KEY,
+            lineascan: process.env.LINEASCAN_API_KEY || process.env.DEFAULT_ETHERSCAN_API_KEY,
         });
 
         console.log('[DEBUG] Starting wallet analysis with 120s timeout...');
         const result = await withTimeout(
             analyzer.analyze(address, chain as ChainId, options),
-            120000,
+            360000,
             'Wallet analysis'
         );
 
         res.json({
             success: true,
-            result,
+            result: enrichAnalysisResult(result),
             usageRemaining: res.locals.usageRemaining,
         });
     } catch (error: any) {
@@ -160,6 +292,8 @@ router.post('/compare', async (req: AuthenticatedRequest, res: Response) => {
 
         const analyzer = new WalletAnalyzer({
             alchemy: alchemyKey,
+            moralis: process.env.MORALIS_API_KEY,
+            lineascan: process.env.LINEASCAN_API_KEY || process.env.DEFAULT_ETHERSCAN_API_KEY,
         });
 
         const result = await analyzer.compareWallets(addresses, chain as ChainId, options);
@@ -207,7 +341,8 @@ router.post('/contract', async (req: AuthenticatedRequest, res: Response) => {
 
         const analyzer = new WalletAnalyzer({
             alchemy: alchemyKey,
-            moralis: process.env.MORALIS_API_KEY, // Pass Moralis key if available
+            moralis: process.env.MORALIS_API_KEY,
+            lineascan: process.env.LINEASCAN_API_KEY || process.env.DEFAULT_ETHERSCAN_API_KEY,
         });
 
         // Try to fetch interactors from Dune first if configured
@@ -243,7 +378,7 @@ router.post('/contract', async (req: AuthenticatedRequest, res: Response) => {
         console.log('[DEBUG] Contract analysis complete, sending response');
         res.json({
             success: true,
-            result,
+            result: enrichAnalysisResult(result),
             usageRemaining: res.locals.usageRemaining,
         });
     } catch (error: any) {
@@ -281,14 +416,16 @@ router.post('/sybil', async (req: AuthenticatedRequest, res: Response) => {
         console.log('[DEBUG] Fetching Alchemy API key for user...');
         const alchemyKey = await getAlchemyKeyForUser(req.user.uid);
         const moralisKey = process.env.MORALIS_API_KEY || '';
+        const covalentKey = process.env.COVALENT_API_KEY || '';
         console.log('[DEBUG] Alchemy key retrieved, length:', alchemyKey?.length);
         console.log('[DEBUG] Moralis key present:', !!moralisKey);
+        console.log('[DEBUG] Covalent key present:', !!covalentKey);
 
         if (!alchemyKey) {
             return res.status(400).json({ error: 'Alchemy API key required for sybil detection' });
         }
 
-        const analyzer = new SybilAnalyzer(chain as ChainId, alchemyKey, moralisKey);
+        const analyzer = new SybilAnalyzer(chain as ChainId, alchemyKey, moralisKey, covalentKey);
 
         console.log('[DEBUG] Starting sybil analysis with 300s timeout...');
         const result = await withTimeout(
@@ -352,12 +489,13 @@ router.post('/sybil-addresses', async (req: AuthenticatedRequest, res: Response)
         console.log('[DEBUG] Fetching Alchemy API key for user...');
         const alchemyKey = await getAlchemyKeyForUser(req.user.uid);
         const moralisKey = process.env.MORALIS_API_KEY || '';
+        const covalentKey = process.env.COVALENT_API_KEY || '';
 
         if (!alchemyKey) {
             return res.status(400).json({ error: 'Alchemy API key required for sybil detection' });
         }
 
-        const analyzer = new SybilAnalyzer(chain as ChainId, alchemyKey, moralisKey);
+        const analyzer = new SybilAnalyzer(chain as ChainId, alchemyKey, moralisKey, covalentKey);
 
         console.log('[DEBUG] Starting sybil analysis on provided addresses...');
         const result = await withTimeout(

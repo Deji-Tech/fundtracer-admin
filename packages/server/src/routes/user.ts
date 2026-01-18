@@ -26,15 +26,20 @@ router.get('/profile', async (req: AuthenticatedRequest, res: Response) => {
         const dailyLimit = parseInt(process.env.FREE_DAILY_LIMIT || '7', 10);
         const hasAlchemyKey = !!userData?.alchemyApiKey;
 
+        const tier = userData?.tier || 'free';
+        const isUnlimited = tier === 'pro' || tier === 'max' || hasAlchemyKey;
+
         res.json({
             uid: req.user.uid,
             email: req.user.email,
             name: req.user.name,
+            isVerified: !!userData?.isVerified,
+            tier,
             hasAlchemyApiKey: hasAlchemyKey,
             usage: {
                 today: usageToday,
-                limit: hasAlchemyKey ? 'unlimited' : dailyLimit,
-                remaining: hasAlchemyKey ? 'unlimited' : Math.max(0, dailyLimit - usageToday),
+                limit: isUnlimited ? 'unlimited' : dailyLimit,
+                remaining: isUnlimited ? 'unlimited' : Math.max(0, dailyLimit - usageToday),
             },
             createdAt: userData?.createdAt,
         });

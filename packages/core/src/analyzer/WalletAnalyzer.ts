@@ -100,8 +100,8 @@ export class WalletAnalyzer {
         // Build funding trees
         const treeBuilder = new FundingTreeBuilder(provider, this.onProgress);
         const [fundingSources, fundingDestinations] = await Promise.all([
-            treeBuilder.buildSourceTree(normalizedAddr, options.treeConfig),
-            treeBuilder.buildDestinationTree(normalizedAddr, options.treeConfig),
+            treeBuilder.buildSourceTree(normalizedAddr, options.treeConfig, allTxs),
+            treeBuilder.buildDestinationTree(normalizedAddr, options.treeConfig, allTxs),
         ]);
 
         // Progress update
@@ -137,7 +137,7 @@ export class WalletAnalyzer {
         this.reportProgress('Generating summary', 6, 6, 'Finalizing analysis...');
 
         // Generate summary
-        const summary = this.generateSummary(allTxs, fundingSources, fundingDestinations);
+        const summary = this.generateSummary(allTxs, fundingSources, fundingDestinations, walletInfo.firstTxTimestamp);
 
         return {
             wallet: walletInfo,
@@ -480,7 +480,8 @@ export class WalletAnalyzer {
     private generateSummary(
         transactions: Transaction[],
         sources: FundingNode,
-        destinations: FundingNode
+        destinations: FundingNode,
+        firstTxTimestamp?: number
     ): AnalysisSummary {
         const successfulTxs = transactions.filter(tx => tx.status === 'success').length;
         const failedTxs = transactions.filter(tx => tx.status === 'failed').length;
@@ -505,9 +506,36 @@ export class WalletAnalyzer {
         }
 
         const timestamps = transactions.map(tx => tx.timestamp).filter(t => t > 0);
-        const activityPeriodDays = timestamps.length > 1
-            ? Math.ceil((Math.max(...timestamps) - Math.min(...timestamps)) / 86400)
+
+        let startTimestamp = 0;
+        let endTimestamp = 0;
+
+        // Current time as fallback for end timestamp
+        const nowTimestamp = Math.floor(Date.now() / 1000);
+
+        if (timestamps.length > 0) {
+            endTimestamp = Math.max(...timestamps);
+            // Use fetched first timestamp if available and valid (older than or equal to end)
+            if (firstTxTimestamp && firstTxTimestamp > 0 && firstTxTimestamp <= endTimestamp) {
+                startTimestamp = firstTxTimestamp;
+                console.log(`[ActivityPeriod] Using firstTxTimestamp from provider: ${firstTxTimestamp} (${new Date(firstTxTimestamp * 1000).toISOString()})`);
+            } else {
+                startTimestamp = Math.min(...timestamps);
+                console.log(`[ActivityPeriod] Using min from transactions: ${startTimestamp} (firstTxTimestamp was: ${firstTxTimestamp})`);
+            }
+        } else if (firstTxTimestamp && firstTxTimestamp > 0) {
+            // No transactions fetched (likely rate limited), but we have firstTxTimestamp
+            // Use firstTxTimestamp as start and current time as end
+            startTimestamp = firstTxTimestamp;
+            endTimestamp = nowTimestamp;
+            console.log(`[ActivityPeriod] No transactions, using firstTxTimestamp ${firstTxTimestamp} to now ${nowTimestamp}`);
+        }
+
+        const activityPeriodDays = (startTimestamp > 0 && endTimestamp >= startTimestamp)
+            ? Math.ceil((endTimestamp - startTimestamp) / 86400)
             : 1;
+
+        console.log(`[ActivityPeriod] Start: ${startTimestamp}, End: ${endTimestamp}, Days: ${activityPeriodDays}`);
 
         return {
             totalTransactions: transactions.length,
@@ -522,8 +550,8 @@ export class WalletAnalyzer {
             topFundingDestinations: destinations.children
                 .slice(0, 5)
                 .map(c => ({ address: c.address, valueEth: c.totalValueInEth })),
-            activityPeriodDays,
-            averageTxPerDay: transactions.length / activityPeriodDays,
+            activityPeriodDays: Math.max(1, activityPeriodDays),
+            averageTxPerDay: transactions.length / Math.max(1, activityPeriodDays),
         };
     }
 

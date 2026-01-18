@@ -17,6 +17,7 @@ import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import OnboardingModal from './components/OnboardingModal';
 import FeedbackModal from './components/FeedbackModal';
 import PaymentModal from './components/PaymentModal';
+import ContractSearch from './components/ContractSearch';
 
 type ViewMode = 'wallet' | 'contract' | 'compare' | 'sybil';
 
@@ -341,12 +342,11 @@ function App() {
                                     {viewMode === 'contract' && (
                                         <div style={{ marginBottom: 'var(--space-4)' }}>
                                             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 'var(--space-2)' }}>
-                                                Contract Address
+                                                Contract Address or Name
                                             </div>
-                                            <WalletInput
-                                                value={contractAddress}
-                                                onChange={setContractAddress}
-                                                placeholder="Enter contract address (0x...)"
+                                            <ContractSearch
+                                                onSelect={(address) => setContractAddress(address)}
+                                                placeholder="Search by name (e.g. Uniswap) or paste address"
                                             />
                                         </div>
                                     )}

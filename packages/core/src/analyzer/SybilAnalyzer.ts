@@ -6,6 +6,7 @@
 import { ChainId } from '../types.js';
 import { ProviderFactory } from '../providers/ProviderFactory.js';
 import { AlchemyProvider } from '../providers/AlchemyProvider.js';
+import { CovalentProvider } from '../providers/CovalentProvider.js';
 
 /** Individual wallet with its funding info */
 export interface WalletFunding {
@@ -73,13 +74,17 @@ const THRESHOLDS = {
 
 export class SybilAnalyzer {
     private provider: AlchemyProvider;
+    private covalentProvider?: CovalentProvider;
     private chain: ChainId;
     private moralisKey: string;
 
-    constructor(chain: ChainId, alchemyKey: string, moralisKey?: string) {
+    constructor(chain: ChainId, alchemyKey: string, moralisKey?: string, covalentKey?: string) {
         this.chain = chain;
         this.provider = new AlchemyProvider(chain, alchemyKey);
         this.moralisKey = moralisKey || '';
+        if (covalentKey) {
+            this.covalentProvider = new CovalentProvider(chain, covalentKey);
+        }
     }
 
     /**
@@ -496,7 +501,24 @@ export class SybilAnalyzer {
             const batchResults = await Promise.all(
                 batch.map(async (address): Promise<WalletFunding> => {
                     try {
-                        // Try Moralis first (faster)
+                        // Try Covalent first (deep history, most reliable)
+                        if (this.covalentProvider) {
+                            const funding = await this.covalentProvider.getFirstFunder(address);
+                            if (funding && funding.firstTx) {
+                                const result: WalletFunding = {
+                                    address,
+                                    funder: funding.address,
+                                    fundingTxHash: funding.firstTx.hash,
+                                    fundingTimestamp: funding.firstTx.timestamp,
+                                    fundingAmount: funding.firstTx.valueInEth,
+                                    interactionCount: 1,
+                                };
+                                this.fundingCache.set(address.toLowerCase(), result);
+                                return result;
+                            }
+                        }
+
+                        // Try Moralis next (faster than Alchemy)
                         if (this.moralisKey) {
                             const funding = await this.getFirstFunderMoralis(address);
                             if (funding) {

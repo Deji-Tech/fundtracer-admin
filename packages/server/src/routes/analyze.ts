@@ -251,10 +251,10 @@ router.post('/wallet', async (req: AuthenticatedRequest, res: Response) => {
         const limit = Math.min(options?.limit || 100, 500); // Max 500 per request
         const offset = options?.offset || 0;
 
-        console.log(`[DEBUG] Starting wallet analysis (limit=${limit}, offset=${offset}) with 60s timeout...`);
+        console.log(`[DEBUG] Starting wallet analysis (limit=${limit}, offset=${offset}) with 90s timeout...`);
         const result = await withTimeout(
-            analyzer.analyze(address, chain as ChainId, options),
-            60000, // Reduced to 60s to avoid 504
+            analyzer.analyze(address, chain as ChainId, { ...options, transactionLimit: 100 }),
+            90000, // Increased to 90s, fetch limited to 100 txs initially
             'Wallet analysis'
         );
 

@@ -203,6 +203,7 @@ export interface FilterOptions {
     categories?: TxCategory[];
     status?: TxStatus[];
     addressFilter?: string[]; // Only include txs with these addresses
+    limit?: number; // Maximum number of transactions to fetch
 }
 
 /** API response from block explorers */

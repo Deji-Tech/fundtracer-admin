@@ -7,6 +7,21 @@ interface MultiWalletViewProps {
 
 function MultiWalletView({ result }: MultiWalletViewProps) {
     const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    const [showAllSources, setShowAllSources] = React.useState(false);
+    const [showAllDestinations, setShowAllDestinations] = React.useState(false);
+    const [showSourcesAsList, setShowSourcesAsList] = React.useState(false);
+    const [showDestinationsAsList, setShowDestinationsAsList] = React.useState(false);
+
+    // Defensive ETH conversion - some transactions may have incorrect valueInEth
+    const safeEthValue = (tx: any) => {
+        // If valueInEth looks unrealistic (>100 ETH in direct transfers is suspicious)
+        if (tx.valueInEth > 100) {
+            // Recalculate from Wei value
+            const weiValue = typeof tx.value === 'string' ? tx.value : '0';
+            return parseFloat(weiValue) / 1e18;
+        }
+        return tx.valueInEth;
+    };
 
     return (
         <div className="stagger-children">
@@ -72,8 +87,8 @@ function MultiWalletView({ result }: MultiWalletViewProps) {
                     <p style={{ color: 'var(--color-warning-text)', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
                         These wallets share the same funding sources, which may indicate a common origin.
                     </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-                        {result.commonFundingSources.map((addr) => (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                        {(showAllSources ? result.commonFundingSources : result.commonFundingSources.slice(0, 12)).map((addr) => (
                             <a
                                 key={addr}
                                 href={`https://etherscan.io/address/${addr}`}
@@ -92,6 +107,82 @@ function MultiWalletView({ result }: MultiWalletViewProps) {
                             </a>
                         ))}
                     </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                        <button
+                            onClick={() => setShowSourcesAsList(!showSourcesAsList)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: 'var(--text-xs)' }}
+                        >
+                            {showSourcesAsList ? 'Show Short' : 'View as List'}
+                        </button>
+                        {result.commonFundingSources.length > 12 && (
+                            <button
+                                onClick={() => setShowAllSources(!showAllSources)}
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: 'var(--text-xs)' }}
+                            >
+                                {showAllSources ? 'Show Less' : `Show All (${result.commonFundingSources.length})`}
+                            </button>
+                        )}
+                    </div>
+                    {showSourcesAsList ? (
+                        <div style={{
+                            maxHeight: '400px',
+                            overflowY: 'auto',
+                            background: 'var(--color-bg-elevated)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: 'var(--space-3)'
+                        }}>
+                            {(showAllSources ? result.commonFundingSources : result.commonFundingSources.slice(0, 12)).map((addr) => (
+                                <div
+                                    key={addr}
+                                    style={{
+                                        padding: 'var(--space-2)',
+                                        borderBottom: '1px solid var(--color-surface-border)',
+                                        fontFamily: 'var(--font-mono)',
+                                        fontSize: 'var(--text-xs)',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    <span style={{ color: 'var(--color-warning-text)' }}>{addr}</span>
+                                    <a
+                                        href={`https://etherscan.io/address/${addr}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                            color: 'var(--color-text-muted)',
+                                            fontSize: '11px'
+                                        }}
+                                    >
+                                        View ↗
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                            {(showAllSources ? result.commonFundingSources : result.commonFundingSources.slice(0, 12)).map((addr) => (
+                                <a
+                                    key={addr}
+                                    href={`https://etherscan.io/address/${addr}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        padding: 'var(--space-2) var(--space-3)',
+                                        background: 'var(--color-warning-bg)',
+                                        borderRadius: 'var(--radius-md)',
+                                        fontFamily: 'var(--font-mono)',
+                                        fontSize: 'var(--text-xs)',
+                                        color: 'var(--color-warning-text)',
+                                    }}
+                                >
+                                    {formatAddress(addr)}
+                                </a>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -104,8 +195,8 @@ function MultiWalletView({ result }: MultiWalletViewProps) {
                     <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
                         These wallets have sent funds to the same addresses.
                     </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-                        {result.commonDestinations.map((addr) => (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                        {(showAllDestinations ? result.commonDestinations : result.commonDestinations.slice(0, 12)).map((addr) => (
                             <a
                                 key={addr}
                                 href={`https://etherscan.io/address/${addr}`}
@@ -124,6 +215,82 @@ function MultiWalletView({ result }: MultiWalletViewProps) {
                             </a>
                         ))}
                     </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                        <button
+                            onClick={() => setShowDestinationsAsList(!showDestinationsAsList)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: 'var(--text-xs)' }}
+                        >
+                            {showDestinationsAsList ? 'Show Short' : 'View as List'}
+                        </button>
+                        {result.commonDestinations.length > 12 && (
+                            <button
+                                onClick={() => setShowAllDestinations(!showAllDestinations)}
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: 'var(--text-xs)' }}
+                            >
+                                {showAllDestinations ? 'Show Less' : `Show All (${result.commonDestinations.length})`}
+                            </button>
+                        )}
+                    </div>
+                    {showDestinationsAsList ? (
+                        <div style={{
+                            maxHeight: '400px',
+                            overflowY: 'auto',
+                            background: 'var(--color-bg-elevated)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: 'var(--space-3)'
+                        }}>
+                            {(showAllDestinations ? result.commonDestinations : result.commonDestinations.slice(0, 12)).map((addr) => (
+                                <div
+                                    key={addr}
+                                    style={{
+                                        padding: 'var(--space-2)',
+                                        borderBottom: '1px solid var(--color-surface-border)',
+                                        fontFamily: 'var(--font-mono)',
+                                        fontSize: 'var(--text-xs)',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    <span style={{ color: 'var(--color-info-text)' }}>{addr}</span>
+                                    <a
+                                        href={`https://etherscan.io/address/${addr}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                            color: 'var(--color-text-muted)',
+                                            fontSize: '11px'
+                                        }}
+                                    >
+                                        View ↗
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                            {(showAllDestinations ? result.commonDestinations : result.commonDestinations.slice(0, 12)).map((addr) => (
+                                <a
+                                    key={addr}
+                                    href={`https://etherscan.io/address/${addr}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        padding: 'var(--space-2) var(--space-3)',
+                                        background: 'var(--color-info-bg)',
+                                        borderRadius: 'var(--radius-md)',
+                                        fontFamily: 'var(--font-mono)',
+                                        fontSize: 'var(--text-xs)',
+                                        color: 'var(--color-info-text)',
+                                    }}
+                                >
+                                    {formatAddress(addr)}
+                                </a>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -147,16 +314,39 @@ function MultiWalletView({ result }: MultiWalletViewProps) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {result.directTransfers.slice(0, 10).map((tx, i) => (
-                                    <tr key={i}>
-                                        <td className="tx-address">{formatAddress(tx.from)}</td>
-                                        <td className="tx-address">{tx.to ? formatAddress(tx.to) : '-'}</td>
-                                        <td className="tx-value outgoing">{tx.valueInEth.toFixed(4)} ETH</td>
-                                        <td style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-                                            {new Date(tx.timestamp * 1000).toLocaleDateString()}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {result.directTransfers.map((tx, i) => {
+                                    const ethValue = safeEthValue(tx);
+                                    return (
+                                        <tr key={i}>
+                                            <td className="tx-address">
+                                                <a
+                                                    href={`https://etherscan.io/address/${tx.from}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{ color: 'var(--color-text-primary)' }}
+                                                >
+                                                    {formatAddress(tx.from)}
+                                                </a>
+                                            </td>
+                                            <td className="tx-address">
+                                                {tx.to ? (
+                                                    <a
+                                                        href={`https://etherscan.io/address/${tx.to}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{ color: 'var(--color-text-primary)' }}
+                                                    >
+                                                        {formatAddress(tx.to)}
+                                                    </a>
+                                                ) : '-'}
+                                            </td>
+                                            <td className="tx-value outgoing">{ethValue.toFixed(4)} ETH</td>
+                                            <td style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+                                                {tx.timestamp && tx.timestamp > 0 ? new Date(tx.timestamp * 1000).toLocaleDateString() : '-'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -177,10 +367,10 @@ function MultiWalletView({ result }: MultiWalletViewProps) {
                                 background: 'var(--color-bg-tertiary)',
                                 borderRadius: 'var(--radius-md)',
                                 borderLeft: `3px solid ${wallet.riskLevel === 'critical' || wallet.riskLevel === 'high'
-                                        ? 'var(--color-danger-text)'
-                                        : wallet.riskLevel === 'medium'
-                                            ? 'var(--color-warning-text)'
-                                            : 'var(--color-success-text)'
+                                    ? 'var(--color-danger-text)'
+                                    : wallet.riskLevel === 'medium'
+                                        ? 'var(--color-warning-text)'
+                                        : 'var(--color-success-text)'
                                     }`,
                             }}
                         >

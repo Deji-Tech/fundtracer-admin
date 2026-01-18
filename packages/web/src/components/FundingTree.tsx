@@ -228,8 +228,21 @@ function FundingTree({ node, direction, chain = 'ethereum', title }: FundingTree
     const chainConfig = CHAINS[chain];
     const isMobile = useIsMobile();
 
-    // Safety checks
-    if (!node || !chainConfig) return null;
+    // Safety checks - be more specific
+    if (!chainConfig) {
+        console.error('[FundingTree] Invalid chain config for chain:', chain);
+        return null;
+    }
+
+    if (!node || !node.address) {
+        console.warn('[FundingTree] No node or invalid node structure:', node);
+        // Return empty state instead of null
+        return (
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--color-text-muted)' }}>
+                No funding data available
+            </div>
+        );
+    }
 
     // Flatten tree for searching (memoized)
     const flattenTree = useCallback((n: FundingNode, depth = 0): FundingNode[] => {

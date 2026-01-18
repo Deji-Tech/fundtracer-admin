@@ -16,7 +16,7 @@ type SortDirection = 'asc' | 'desc';
 function TransactionList({ transactions, chain, pagination, loadingMore, onLoadMore }: TransactionListProps) {
     const [sortField, setSortField] = useState<SortField>('timestamp');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-    const [filterCategory, setFilterCategory] = useState<TxCategory | 'all'>('all');
+    const [filterType, setFilterType] = useState<'all' | 'transfer' | 'token_transfer' | 'incoming' | 'outgoing'>('all');
     const [filterStatus, setFilterStatus] = useState<TxStatus | 'all'>('all');
     const [page, setPage] = useState(0);
     const pageSize = 25;
@@ -30,10 +30,17 @@ function TransactionList({ transactions, chain, pagination, loadingMore, onLoadM
     const filteredAndSorted = useMemo(() => {
         let result = [...transactions];
 
-        // Apply filters
-        if (filterCategory !== 'all') {
-            result = result.filter(tx => tx.category === filterCategory);
+        // Apply simplified filters
+        if (filterType === 'transfer') {
+            result = result.filter(tx => tx.category === 'transfer');
+        } else if (filterType === 'token_transfer') {
+            result = result.filter(tx => tx.category === 'token_transfer');
+        } else if (filterType === 'incoming') {
+            result = result.filter(tx => tx.isIncoming);
+        } else if (filterType === 'outgoing') {
+            result = result.filter(tx => !tx.isIncoming);
         }
+
         if (filterStatus !== 'all') {
             result = result.filter(tx => tx.status === filterStatus);
         }
@@ -56,7 +63,7 @@ function TransactionList({ transactions, chain, pagination, loadingMore, onLoadM
         });
 
         return result;
-    }, [transactions, filterCategory, filterStatus, sortField, sortDirection]);
+    }, [transactions, filterType, filterStatus, sortField, sortDirection]);
 
     const paginatedTxs = filteredAndSorted.slice(page * pageSize, (page + 1) * pageSize);
     const totalPages = Math.ceil(filteredAndSorted.length / pageSize);
@@ -73,8 +80,6 @@ function TransactionList({ transactions, chain, pagination, loadingMore, onLoadM
             setSortDirection('desc');
         }
     };
-
-    const categories: TxCategory[] = ['transfer', 'contract_call', 'token_transfer', 'dex_swap', 'nft_transfer', 'bridge'];
 
     // Infinite scroll: observe sentinel element
     useEffect(() => {
@@ -101,15 +106,14 @@ function TransactionList({ transactions, chain, pagination, loadingMore, onLoadM
                     <label className="filter-label">Category</label>
                     <select
                         className="filter-select"
-                        value={filterCategory}
-                        onChange={(e) => setFilterCategory(e.target.value as TxCategory | 'all')}
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value as typeof filterType)}
                     >
                         <option value="all">All Categories</option>
-                        {categories.map(cat => (
-                            <option key={cat} value={cat}>
-                                {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </option>
-                        ))}
+                        <option value="transfer">Transfer</option>
+                        <option value="token_transfer">Token Transfer</option>
+                        <option value="incoming">Incoming tx</option>
+                        <option value="outgoing">Outgoing tx</option>
                     </select>
                 </div>
 

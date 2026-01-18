@@ -25,21 +25,21 @@
   --color-accent-highlight: #4a4a4a;
   --color-accent-active: #5a5a5a;
 
-  /* Status colors - Lighter / Pastel as requested */
+  /* Status colors - Even lighter for less bold appearance */
   --color-success: #2d5a3d;
-  --color-success-text: #86efac;
-  /* Lighter pastel green (green-300) */
-  --color-success-bg: rgba(134, 239, 172, 0.1);
+  --color-success-text: #a7f3d0;
+  /* Even lighter green (green-200) */
+  --color-success-bg: rgba(167, 243, 208, 0.1);
 
   --color-warning: #5a4a2d;
-  --color-warning-text: #fcd34d;
-  /* Lighter pastel yellow (amber-300) */
-  --color-warning-bg: rgba(252, 211, 77, 0.1);
+  --color-warning-text: #fde68a;
+  /* Even lighter yellow (amber-200) */
+  --color-warning-bg: rgba(253, 230, 138, 0.1);
 
   --color-danger: #5a2d2d;
-  --color-danger-text: #fca5a5;
-  /* Lighter pastel red (red-300) */
-  --color-danger-bg: rgba(252, 165, 165, 0.1);
+  --color-danger-text: #fecaca;
+  /* Even lighter red (red-200) */
+  --color-danger-bg: rgba(254, 202, 202, 0.1);
 
   --color-info: #2d3d5a;
   --color-info-text: #60a5fa;

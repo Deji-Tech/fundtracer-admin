@@ -52,6 +52,7 @@ export class WalletAnalyzer {
         options: {
             treeConfig?: Partial<FundingTreeConfig>;
             filters?: FilterOptions;
+            transactionLimit?: number; // Limit number of transactions fetched
         } = {}
     ): Promise<AnalysisResult> {
         const provider = this.providerFactory.getProvider(chainId);
@@ -84,11 +85,14 @@ export class WalletAnalyzer {
         // Progress update
         this.reportProgress('Fetching transactions', 2, 6, 'Retrieving transaction history...');
 
-        // Get all transactions
+        // Get transactions with optional limit
+        const txLimit = options.transactionLimit || undefined; // undefined = fetch all
+        const filterWithLimit = { ...options.filters, limit: txLimit };
+
         const [normalTxs, internalTxs, tokenTransfers] = await Promise.all([
-            provider.getTransactions(normalizedAddr, options.filters),
-            provider.getInternalTransactions(normalizedAddr, options.filters),
-            provider.getTokenTransfers(normalizedAddr, options.filters),
+            provider.getTransactions(normalizedAddr, filterWithLimit),
+            provider.getInternalTransactions(normalizedAddr, filterWithLimit),
+            provider.getTokenTransfers(normalizedAddr, filterWithLimit),
         ]);
 
         // Combine and dedupe transactions
@@ -505,37 +509,14 @@ export class WalletAnalyzer {
             if (tx.to) uniqueAddresses.add(tx.to);
         }
 
-        const timestamps = transactions.map(tx => tx.timestamp).filter(t => t > 0);
-
-        let startTimestamp = 0;
-        let endTimestamp = 0;
-
-        // Current time as fallback for end timestamp
+        // Calculate activity period - ALWAYS use wallet firstTxTimestamp for consistency
+        // This ensures the same result regardless of transaction limit/pagination
         const nowTimestamp = Math.floor(Date.now() / 1000);
-
-        if (timestamps.length > 0) {
-            endTimestamp = Math.max(...timestamps);
-            // Use fetched first timestamp if available and valid (older than or equal to end)
-            if (firstTxTimestamp && firstTxTimestamp > 0 && firstTxTimestamp <= endTimestamp) {
-                startTimestamp = firstTxTimestamp;
-                console.log(`[ActivityPeriod] Using firstTxTimestamp from provider: ${firstTxTimestamp} (${new Date(firstTxTimestamp * 1000).toISOString()})`);
-            } else {
-                startTimestamp = Math.min(...timestamps);
-                console.log(`[ActivityPeriod] Using min from transactions: ${startTimestamp} (firstTxTimestamp was: ${firstTxTimestamp})`);
-            }
-        } else if (firstTxTimestamp && firstTxTimestamp > 0) {
-            // No transactions fetched (likely rate limited), but we have firstTxTimestamp
-            // Use firstTxTimestamp as start and current time as end
-            startTimestamp = firstTxTimestamp;
-            endTimestamp = nowTimestamp;
-            console.log(`[ActivityPeriod] No transactions, using firstTxTimestamp ${firstTxTimestamp} to now ${nowTimestamp}`);
-        }
-
-        const activityPeriodDays = (startTimestamp > 0 && endTimestamp >= startTimestamp)
-            ? Math.ceil((endTimestamp - startTimestamp) / 86400)
+        const activityPeriodDays = (firstTxTimestamp && firstTxTimestamp > 0)
+            ? Math.max(1, Math.ceil((nowTimestamp - firstTxTimestamp) / 86400))
             : 1;
 
-        console.log(`[ActivityPeriod] Start: ${startTimestamp}, End: ${endTimestamp}, Days: ${activityPeriodDays}`);
+        console.log(`[ActivityPeriod] Using wallet firstTx: ${firstTxTimestamp}, Now: ${nowTimestamp}, Days: ${activityPeriodDays}`);
 
         return {
             totalTransactions: transactions.length,

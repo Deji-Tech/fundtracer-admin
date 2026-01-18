@@ -225,6 +225,7 @@ export abstract class BaseProvider {
         address: string,
         filters?: FilterOptions
     ): Promise<Transaction[]> {
+        const limit = filters?.limit || 10000; // Use limit if provided, default to 10000
         const rawTxs = await this.request<RawTransaction[]>({
             module: 'account',
             action: 'txlist',
@@ -232,7 +233,7 @@ export abstract class BaseProvider {
             startblock: 0,
             endblock: 99999999,
             page: 1,
-            offset: 10000,
+            offset: limit,
             sort: 'desc',
         });
 
@@ -253,6 +254,7 @@ export abstract class BaseProvider {
         address: string,
         filters?: FilterOptions
     ): Promise<Transaction[]> {
+        const limit = filters?.limit || 10000;
         const rawTxs = await this.request<RawInternalTransaction[]>({
             module: 'account',
             action: 'txlistinternal',
@@ -260,7 +262,7 @@ export abstract class BaseProvider {
             startblock: 0,
             endblock: 99999999,
             page: 1,
-            offset: 10000,
+            offset: limit,
             sort: 'desc',
         });
 
@@ -280,6 +282,7 @@ export abstract class BaseProvider {
         address: string,
         filters?: FilterOptions
     ): Promise<TokenTransfer[]> {
+        const limit = filters?.limit || 10000;
         const rawTransfers = await this.request<RawTokenTransfer[]>({
             module: 'account',
             action: 'tokentx',
@@ -287,7 +290,7 @@ export abstract class BaseProvider {
             startblock: 0,
             endblock: 99999999,
             page: 1,
-            offset: 10000,
+            offset: limit,
             sort: 'desc',
         });
 

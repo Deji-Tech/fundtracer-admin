@@ -65,7 +65,10 @@ app.use(cors({
         'http://localhost:3000',
         /^https:\/\/.*\.netlify\.app$/,
         /^https:\/\/.*\.firebaseapp\.com$/,
-        /^https:\/\/.*\.pxxl\.click$/
+        /^https:\/\/.*\.pxxl\.click$/,
+        'https://fundtracer.xyz',
+        'https://www.fundtracer.xyz',
+        /^https:\/\/.*\.fundtracer\.xyz$/
     ],
     credentials: true,
 }));

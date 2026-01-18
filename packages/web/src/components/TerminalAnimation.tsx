@@ -1,50 +1,67 @@
 import React, { useState, useEffect } from 'react';
 
+// Hook to detect mobile devices
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    return isMobile;
+}
+
 interface LogLine {
     time: string;
     message: string;
+    shortMessage?: string; // For mobile
     status?: 'success' | 'warning' | 'info' | 'loading';
 }
 
 const terminalLogs: LogLine[] = [
-    { time: '00:00:01.234', message: 'Connecting to blockchain...', status: 'info' },
-    { time: '00:00:01.456', message: 'Fetching wallet transactions', status: 'loading' },
-    { time: '00:00:02.103', message: 'Found 847 transactions', status: 'success' },
-    { time: '00:00:02.345', message: 'Building funding tree...', status: 'loading' },
-    { time: '00:00:03.012', message: 'Identified 12 funding sources', status: 'success' },
-    { time: '00:00:03.567', message: 'Running sybil detection...', status: 'loading' },
-    { time: '00:00:04.234', message: 'Cross-referencing known entities', status: 'info' },
-    { time: '00:00:04.891', message: 'Matched: Binance Hot Wallet', status: 'success' },
-    { time: '00:00:05.123', message: 'Analyzing activity patterns', status: 'loading' },
-    { time: '00:00:05.678', message: 'Activity period: 423 days', status: 'success' },
-    { time: '00:00:06.012', message: 'Risk score: LOW', status: 'success' },
-    { time: '00:00:06.345', message: 'Analysis complete ✓', status: 'success' },
+    { time: '00:01.23', message: 'Connecting to blockchain...', shortMessage: 'Connecting...', status: 'info' },
+    { time: '00:01.45', message: 'Fetching wallet transactions', shortMessage: 'Fetching txs', status: 'loading' },
+    { time: '00:02.10', message: 'Found 847 transactions', shortMessage: '847 txs found', status: 'success' },
+    { time: '00:02.34', message: 'Building funding tree...', shortMessage: 'Building tree', status: 'loading' },
+    { time: '00:03.01', message: 'Identified 12 funding sources', shortMessage: '12 sources', status: 'success' },
+    { time: '00:03.56', message: 'Running sybil detection...', shortMessage: 'Sybil check', status: 'loading' },
+    { time: '00:04.23', message: 'Cross-referencing known entities', shortMessage: 'Cross-ref', status: 'info' },
+    { time: '00:04.89', message: 'Matched: Binance Hot Wallet', shortMessage: 'Binance ✓', status: 'success' },
+    { time: '00:05.12', message: 'Analyzing activity patterns', shortMessage: 'Patterns', status: 'loading' },
+    { time: '00:05.67', message: 'Activity period: 423 days', shortMessage: '423 days', status: 'success' },
+    { time: '00:06.01', message: 'Risk score: LOW', shortMessage: 'Risk: LOW', status: 'success' },
+    { time: '00:06.34', message: 'Analysis complete ✓', shortMessage: 'Complete ✓', status: 'success' },
 ];
 
 function TerminalAnimation() {
     const [visibleLines, setVisibleLines] = useState<LogLine[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isComplete, setIsComplete] = useState(false);
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         if (currentIndex < terminalLogs.length && !isComplete) {
-            // 30% slower: base 520ms + random 0-390ms (was 400ms + 0-300ms)
             const timer = setTimeout(() => {
                 setVisibleLines(prev => [...prev, terminalLogs[currentIndex]]);
                 setCurrentIndex(prev => prev + 1);
-            }, 520 + Math.random() * 390);
+            }, isMobile ? 350 : 520 + Math.random() * 390);
             return () => clearTimeout(timer);
         } else if (currentIndex >= terminalLogs.length && !isComplete) {
-            // Mark as complete - no repeat
             setIsComplete(true);
         }
-    }, [currentIndex, isComplete]);
+    }, [currentIndex, isComplete, isMobile]);
 
     const getStatusColor = (status?: string) => {
         switch (status) {
-            case 'success': return '#A0A0A0'; // Light grey for success
+            case 'success': return '#A0A0A0';
             case 'warning': return '#888888';
-            case 'info': return '#666666'; // Dark grey
+            case 'info': return '#666666';
             case 'loading': return '#909090';
             default: return '#707070';
         }
@@ -60,24 +77,98 @@ function TerminalAnimation() {
         }
     };
 
+    // Mobile version - compact and simpler
+    if (isMobile) {
+        return (
+            <div style={{
+                background: 'linear-gradient(165deg, #252525 0%, #1a1a1a 50%, #0d0d0d 100%)',
+                borderRadius: '10px',
+                overflow: 'hidden',
+                boxShadow: '0 15px 30px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.06)',
+                width: '100%',
+                maxWidth: '320px',
+                margin: '0 auto',
+            }}>
+                {/* Compact Header */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '10px 14px',
+                    background: 'rgba(50,50,50,0.3)',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                }}>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FF5F56' }} />
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FFBD2E' }} />
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#27C93F' }} />
+                    </div>
+                    <div style={{
+                        flex: 1,
+                        textAlign: 'center',
+                        fontSize: '10px',
+                        color: 'rgba(140,140,140,0.7)',
+                        fontFamily: 'monospace',
+                    }}>
+                        analysis
+                    </div>
+                </div>
+
+                {/* Compact Content */}
+                <div style={{
+                    padding: '12px 14px',
+                    fontFamily: 'ui-monospace, monospace',
+                    fontSize: '11px',
+                    lineHeight: '1.7',
+                    minHeight: '140px',
+                    maxHeight: '180px',
+                    overflowY: 'auto',
+                }}>
+                    {visibleLines.map((line, index) => (
+                        <div
+                            key={index}
+                            style={{
+                                display: 'flex',
+                                gap: '8px',
+                                opacity: 0,
+                                animation: 'terminalFadeIn 0.3s ease forwards',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            <span style={{ color: getStatusColor(line.status), minWidth: '12px' }}>
+                                {getStatusPrefix(line.status)}
+                            </span>
+                            <span style={{ color: 'rgba(180,180,180,0.9)' }}>
+                                {line.shortMessage || line.message}
+                            </span>
+                        </div>
+                    ))}
+                    {!isComplete && currentIndex < terminalLogs.length && (
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                            <span style={{ color: '#777', animation: 'terminalBlink 1s infinite' }}>▋</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // Desktop version - full featured
     return (
         <div style={{
-            // Glossy black/grey gradient
             background: 'linear-gradient(165deg, #2a2a2a 0%, #1a1a1a 30%, #0d0d0d 70%, #1a1a1a 100%)',
             borderRadius: '12px',
             padding: '0',
             overflow: 'hidden',
-            // Glossy effect with subtle border glow
             boxShadow: `
                 0 25px 50px -12px rgba(0, 0, 0, 0.7),
                 0 0 0 1px rgba(255,255,255,0.08),
                 inset 0 1px 0 rgba(255,255,255,0.1)
             `,
             width: '100%',
-            maxWidth: '650px', // Wider
+            maxWidth: '650px',
             margin: '0 auto',
         }}>
-            {/* Terminal Header - Glossy ash */}
+            {/* Terminal Header */}
             <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -102,7 +193,7 @@ function TerminalAnimation() {
                 </div>
             </div>
 
-            {/* Terminal Content - Darker with grey text */}
+            {/* Terminal Content */}
             <div style={{
                 padding: '20px 24px',
                 fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
@@ -120,7 +211,7 @@ function TerminalAnimation() {
                             display: 'flex',
                             gap: '16px',
                             opacity: 0,
-                            animation: 'terminalFadeIn 0.4s ease forwards', // 30% slower (was 0.3s)
+                            animation: 'terminalFadeIn 0.4s ease forwards',
                         }}
                     >
                         <span style={{ color: 'rgba(120,120,120,0.6)', minWidth: '95px' }}>
@@ -145,7 +236,7 @@ function TerminalAnimation() {
                         </span>
                         <span style={{
                             color: '#888888',
-                            animation: 'terminalBlink 1.3s infinite', // 30% slower (was 1s)
+                            animation: 'terminalBlink 1.3s infinite',
                         }}>
                             ▋
                         </span>

@@ -8,11 +8,30 @@ import path from 'path';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
-// Use process.cwd() for consistent path resolution in both dev and production
-// In production (Pxxl), CWD is typically /app
-const DATA_FILE = process.env.NODE_ENV === 'production'
-    ? path.join(process.cwd(), 'src/data/known_contracts.json')
-    : path.join(process.cwd(), 'packages/server/src/data/known_contracts.json');
+import { fileURLToPath } from 'url';
+
+// Robust path resolution logic
+const getKnownContractsPath = () => {
+    // List of potential paths to check
+    const candidates = [
+        path.join(process.cwd(), 'src/data/known_contracts.json'), // In container/prod usually user/src/data
+        path.join(process.cwd(), 'packages/server/src/data/known_contracts.json'), // In monorepo root dev
+        // Fallback relative to this file (if not bundled, or preserved structure)
+        // path.join(path.dirname(__filename), '../data/known_contracts.json') 
+    ];
+
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+
+    // Default to first candidate if none found (will throw ENOENT later but better than random guess)
+    console.warn('[ContractService] known_contracts.json not found in candidate paths, defaulting to:', candidates[0]);
+    return candidates[0];
+};
+
+const DATA_FILE = getKnownContractsPath();
 
 export interface ContractInfo {
     name: string;

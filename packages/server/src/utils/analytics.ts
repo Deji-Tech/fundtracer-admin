@@ -2,7 +2,7 @@
  * Analytics tracking utilities
  * Logs user activity and platform usage to Firestore
  */
-import { getFirestore } from './firebase';
+import { getFirestore } from '../firebase.js';
 
 const db = getFirestore();
 
